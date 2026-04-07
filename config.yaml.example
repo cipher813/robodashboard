@@ -1,0 +1,33 @@
+# RoboDashboard configuration
+# Copy to config.yaml and customize. This file is gitignored.
+
+display:
+  default_sort: "market_value"
+  default_sort_ascending: false
+  hide_zero_positions: true
+
+cache:
+  price_history_dir: "cache"
+  max_age_hours: 24
+  info_max_age_hours: 168       # refetch fundamentals weekly
+
+benchmarks:
+  - SPY
+  - QQQ
+
+# Phase 4 — AI advisor
+# investor_profile:
+#   strategy: "growth with income"
+#   risk_tolerance: "moderate"
+#   time_horizon: "10+ years"
+#   target_allocation:
+#     us_equity: 0.60
+#     international: 0.15
+#     fixed_income: 0.15
+#     alternatives: 0.10
+#   sector_preferences:
+#     overweight: ["Technology", "Healthcare"]
+#     avoid: []
+#   income_target: 25000
+#   max_single_position: 0.10
+#   rebalance_frequency: "quarterly"

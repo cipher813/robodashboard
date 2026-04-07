@@ -1,0 +1,39 @@
+# Secrets / local config
+.env
+config.yaml
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+
+# Virtual environments
+.venv/
+venv/
+
+# Cache (local price data)
+cache/
+
+# macOS
+.DS_Store
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# Gitleaks
+.gitleaks.toml
+.gitleaksbaseline.json
+
+# Coverage
+.coverage
+htmlcov/
+
+# Design docs
+*-design-*.md
+*-design.md
