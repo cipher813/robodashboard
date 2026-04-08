@@ -26,10 +26,11 @@ def compute_returns(prices: pd.Series, years: list[int] | None = None) -> dict[i
     results = {}
     for y in years:
         trading_days = y * 252
-        if len(prices) < trading_days:
+        if len(prices) < trading_days * 0.95:  # Allow 5% tolerance for holidays/gaps
             results[y] = None
             continue
-        start_price = prices.iloc[-trading_days]
+        idx = min(trading_days, len(prices) - 1)
+        start_price = prices.iloc[-idx]
         end_price = prices.iloc[-1]
         if start_price <= 0:
             results[y] = None
@@ -116,3 +117,50 @@ def compute_personal_return(current_price: float, avg_cost: float) -> float | No
     if not avg_cost or avg_cost <= 0:
         return None
     return round((current_price / avg_cost) - 1, 4)
+
+
+def estimate_acquisition_date(prices: pd.Series, avg_cost: float) -> str | None:
+    """Estimate acquisition date by finding the date closest to avg_cost.
+
+    Searches backward from recent prices to find the last date where
+    the closing price crossed the avg_cost level.
+
+    Returns:
+        ISO date string, or None if cannot determine.
+    """
+    if prices.empty or not avg_cost or avg_cost <= 0:
+        return None
+    diffs = (prices - avg_cost).abs()
+    best_idx = diffs.idxmin()
+    if best_idx is not None:
+        return best_idx.strftime("%Y-%m-%d")
+    return None
+
+
+def compute_vs_spy(stock_prices: pd.Series, spy_prices: pd.Series, acq_date: str | None) -> float | None:
+    """Compute stock return vs SPY return since acquisition date.
+
+    Returns:
+        Excess return as decimal (e.g., 0.05 = 5% outperformance), or None.
+    """
+    if not acq_date or stock_prices.empty or spy_prices.empty:
+        return None
+    try:
+        start = pd.Timestamp(acq_date)
+        # Match timezone if index is tz-aware
+        if stock_prices.index.tz is not None:
+            start = start.tz_localize(stock_prices.index.tz)
+        stock_after = stock_prices[stock_prices.index >= start]
+
+        start_spy = pd.Timestamp(acq_date)
+        if spy_prices.index.tz is not None:
+            start_spy = start_spy.tz_localize(spy_prices.index.tz)
+        spy_after = spy_prices[spy_prices.index >= start_spy]
+
+        if stock_after.empty or spy_after.empty:
+            return None
+        stock_ret = float(stock_after.iloc[-1] / stock_after.iloc[0] - 1)
+        spy_ret = float(spy_after.iloc[-1] / spy_after.iloc[0] - 1)
+        return round(stock_ret - spy_ret, 4)
+    except Exception:
+        return None
