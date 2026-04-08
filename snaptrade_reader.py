@@ -58,7 +58,7 @@ class SnapTradeReader:
                 "name": acct.get("name", ""),
                 "number": acct.get("number", ""),
                 "type": acct.get("institution_type", acct.get("type", "")),
-                "institution": acct.get("brokerage_authorization", {}).get("brokerage", {}).get("name", ""),
+                "institution": acct.get("brokerage_authorization", {}).get("brokerage", {}).get("name", "") if isinstance(acct.get("brokerage_authorization"), dict) else "",
             })
         logger.info("Found %d linked accounts", len(accounts))
         return accounts

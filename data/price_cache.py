@@ -100,6 +100,11 @@ class PriceCache:
                 "market_cap": info.get("marketCap"),
                 "pe_ratio": info.get("trailingPE"),
                 "forward_pe": info.get("forwardPE"),
+                "peg_ratio": info.get("trailingPegRatio") or info.get("pegRatio"),
+                "ev_to_ebitda": info.get("enterpriseToEbitda"),
+                "earnings_growth": info.get("earningsGrowth"),
+                "revenue_growth": info.get("revenueGrowth"),
+                "debt_to_equity": info.get("debtToEquity"),
                 "fetched_at": datetime.now().isoformat(),
             }
             cache_path.write_text(json.dumps(result, indent=2))
