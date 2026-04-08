@@ -15,12 +15,30 @@ from data.metrics import (
     compute_personal_return,
     compute_returns,
     compute_rsi,
+    compute_vs_spy,
+    estimate_acquisition_date,
     pct_from_52w_high,
 )
 from data.price_cache import PriceCache
 from snaptrade_reader import SnapTradeReader
 
 logger = logging.getLogger(__name__)
+
+# SnapTrade → yfinance ticker normalization
+# SnapTrade uses exchange-specific suffixes that differ from yfinance conventions
+TICKER_MAP = {
+    ".SP": ".SI",   # Singapore Exchange: SnapTrade uses .SP, yfinance uses .SI
+    ".TO": ".TO",   # Toronto (same)
+    ".L": ".L",     # London (same)
+}
+
+
+def _normalize_ticker(ticker: str) -> str:
+    """Convert SnapTrade ticker format to yfinance format."""
+    for snap_suffix, yf_suffix in TICKER_MAP.items():
+        if ticker.endswith(snap_suffix):
+            return ticker[: -len(snap_suffix)] + yf_suffix
+    return ticker
 
 
 def load_portfolio(reader: SnapTradeReader | None, cache: PriceCache) -> tuple[pd.DataFrame, str]:
@@ -56,7 +74,7 @@ def load_portfolio(reader: SnapTradeReader | None, cache: PriceCache) -> tuple[p
     # Enrich each ticker
     enriched_rows = []
     for _, row in holdings.iterrows():
-        ticker = row["ticker"]
+        ticker = _normalize_ticker(row["ticker"])
         shares = row["shares"]
         avg_cost = row.get("avg_cost", 0)
 
@@ -74,6 +92,8 @@ def load_portfolio(reader: SnapTradeReader | None, cache: PriceCache) -> tuple[p
         market_value = shares * current_price
         unrealized_pnl = market_value - (shares * avg_cost) if avg_cost else 0
         pct_52w = pct_from_52w_high(current_price, info.get("fifty_two_week_high"))
+        acq_date = estimate_acquisition_date(close, avg_cost)
+        vs_spy = compute_vs_spy(close, spy_close, acq_date)
 
         enriched_rows.append({
             "ticker": ticker,
@@ -85,6 +105,8 @@ def load_portfolio(reader: SnapTradeReader | None, cache: PriceCache) -> tuple[p
             "market_value": market_value,
             "unrealized_pnl": unrealized_pnl,
             "return_pct": personal_ret,
+            "vs_spy": vs_spy,
+            "est_acq_date": acq_date,
             "1y_return": returns.get(1),
             "3y_return": returns.get(3),
             "5y_return": returns.get(5),
@@ -96,6 +118,12 @@ def load_portfolio(reader: SnapTradeReader | None, cache: PriceCache) -> tuple[p
             "52w_low": info.get("fifty_two_week_low"),
             "pct_from_52w_high": pct_52w,
             "pe_ratio": info.get("pe_ratio"),
+            "forward_pe": info.get("forward_pe"),
+            "peg_ratio": info.get("peg_ratio"),
+            "ev_to_ebitda": info.get("ev_to_ebitda"),
+            "earnings_growth": info.get("earnings_growth"),
+            "revenue_growth": info.get("revenue_growth"),
+            "debt_to_equity": info.get("debt_to_equity"),
             "n_accounts": row.get("n_accounts", 1),
         })
 
