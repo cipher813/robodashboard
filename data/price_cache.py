@@ -135,3 +135,20 @@ class PriceCache:
     def get_spy_history(self) -> pd.DataFrame:
         """Get SPY history (used for beta computation)."""
         return self.get_history("SPY")
+
+    def get_fx_rate(self, currency: str) -> float:
+        """Return the conversion rate from ``currency`` to USD (USD per 1 unit).
+
+        USD → 1.0. Other currencies use yfinance's ``{CCY}USD=X`` pair (e.g.
+        ``SGDUSD=X`` ≈ 0.74 USD per SGD), reusing the cached history fetch.
+        Returns 1.0 if the rate can't be determined (fail-soft so the dashboard
+        still renders; the local amount is always shown alongside).
+        """
+        if not currency or currency.upper() == "USD":
+            return 1.0
+        pair = f"{currency.upper()}USD=X"
+        hist = self.get_history(pair)
+        if hist.empty or "Close" not in hist or hist["Close"].dropna().empty:
+            logger.warning("No FX rate for %s (%s) — falling back to 1.0", currency, pair)
+            return 1.0
+        return float(hist["Close"].dropna().iloc[-1])

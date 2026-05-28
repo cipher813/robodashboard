@@ -26,12 +26,28 @@ ALL_COLUMNS: dict[str, dict] = {
     "shares": {"label": "Shares", "config": st.column_config.NumberColumn("Shares", format="%.0f"), "group": "core"},
     "current_price": {
         "label": "Price",
-        "config": st.column_config.NumberColumn("Price", format="$%.2f"),
+        "config": st.column_config.NumberColumn(
+            "Price", format="%.2f", help="Latest price in the security's native currency"
+        ),
+        "group": "core",
+    },
+    "currency": {
+        "label": "Ccy",
+        "config": st.column_config.TextColumn("Ccy", width="small", help="Native trading currency of the holding"),
+        "group": "core",
+    },
+    "market_value_local": {
+        "label": "Local Value",
+        "config": st.column_config.NumberColumn(
+            "Local Value", format="%,.0f", help="Market value in the holding's native currency"
+        ),
         "group": "core",
     },
     "market_value": {
-        "label": "Mkt Value",
-        "config": st.column_config.NumberColumn("Mkt Value", format="$%,.0f"),
+        "label": "Mkt Value (USD)",
+        "config": st.column_config.NumberColumn(
+            "Mkt Value (USD)", format="$%,.0f", help="Market value converted to USD"
+        ),
         "group": "core",
     },
     # Position
@@ -44,7 +60,9 @@ ALL_COLUMNS: dict[str, dict] = {
     },
     "avg_cost": {
         "label": "Avg Cost",
-        "config": st.column_config.NumberColumn("Avg Cost", format="$%.2f"),
+        "config": st.column_config.NumberColumn(
+            "Avg Cost", format="%.2f", help="Average cost in the security's native currency"
+        ),
         "group": "position",
     },
     "unrealized_pnl": {
@@ -176,6 +194,8 @@ DEFAULT_ON: set[str] = {
     "name",
     "shares",
     "current_price",
+    "currency",
+    "market_value_local",
     "market_value",
     "sector",
     "weight_pct",
