@@ -27,9 +27,9 @@ logger = logging.getLogger(__name__)
 # SnapTrade → yfinance ticker normalization
 # SnapTrade uses exchange-specific suffixes that differ from yfinance conventions
 TICKER_MAP = {
-    ".SP": ".SI",   # Singapore Exchange: SnapTrade uses .SP, yfinance uses .SI
-    ".TO": ".TO",   # Toronto (same)
-    ".L": ".L",     # London (same)
+    ".SP": ".SI",  # Singapore Exchange: SnapTrade uses .SP, yfinance uses .SI
+    ".TO": ".TO",  # Toronto (same)
+    ".L": ".L",  # London (same)
 }
 
 
@@ -95,37 +95,39 @@ def load_portfolio(reader: SnapTradeReader | None, cache: PriceCache) -> tuple[p
         acq_date = estimate_acquisition_date(close, avg_cost)
         vs_spy = compute_vs_spy(close, spy_close, acq_date)
 
-        enriched_rows.append({
-            "ticker": ticker,
-            "name": info.get("name", ticker),
-            "sector": info.get("sector", ""),
-            "shares": shares,
-            "avg_cost": avg_cost,
-            "current_price": current_price,
-            "market_value": market_value,
-            "unrealized_pnl": unrealized_pnl,
-            "return_pct": personal_ret,
-            "vs_spy": vs_spy,
-            "est_acq_date": acq_date,
-            "1y_return": returns.get(1),
-            "3y_return": returns.get(3),
-            "5y_return": returns.get(5),
-            "10y_return": returns.get(10),
-            "beta": beta,
-            "rsi": rsi,
-            "dividend_yield": info.get("dividend_yield"),
-            "52w_high": info.get("fifty_two_week_high"),
-            "52w_low": info.get("fifty_two_week_low"),
-            "pct_from_52w_high": pct_52w,
-            "pe_ratio": info.get("pe_ratio"),
-            "forward_pe": info.get("forward_pe"),
-            "peg_ratio": info.get("peg_ratio"),
-            "ev_to_ebitda": info.get("ev_to_ebitda"),
-            "earnings_growth": info.get("earnings_growth"),
-            "revenue_growth": info.get("revenue_growth"),
-            "debt_to_equity": info.get("debt_to_equity"),
-            "n_accounts": row.get("n_accounts", 1),
-        })
+        enriched_rows.append(
+            {
+                "ticker": ticker,
+                "name": info.get("name", ticker),
+                "sector": info.get("sector", ""),
+                "shares": shares,
+                "avg_cost": avg_cost,
+                "current_price": current_price,
+                "market_value": market_value,
+                "unrealized_pnl": unrealized_pnl,
+                "return_pct": personal_ret,
+                "vs_spy": vs_spy,
+                "est_acq_date": acq_date,
+                "1y_return": returns.get(1),
+                "3y_return": returns.get(3),
+                "5y_return": returns.get(5),
+                "10y_return": returns.get(10),
+                "beta": beta,
+                "rsi": rsi,
+                "dividend_yield": info.get("dividend_yield"),
+                "52w_high": info.get("fifty_two_week_high"),
+                "52w_low": info.get("fifty_two_week_low"),
+                "pct_from_52w_high": pct_52w,
+                "pe_ratio": info.get("pe_ratio"),
+                "forward_pe": info.get("forward_pe"),
+                "peg_ratio": info.get("peg_ratio"),
+                "ev_to_ebitda": info.get("ev_to_ebitda"),
+                "earnings_growth": info.get("earnings_growth"),
+                "revenue_growth": info.get("revenue_growth"),
+                "debt_to_equity": info.get("debt_to_equity"),
+                "n_accounts": row.get("n_accounts", 1),
+            }
+        )
 
     df = pd.DataFrame(enriched_rows)
 

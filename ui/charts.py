@@ -64,13 +64,19 @@ def performers_figure(df: pd.DataFrame, perf_col: str, n: int = 5) -> go.Figure 
     if show_df.empty:
         return None
     fig = px.bar(
-        show_df, x="return_display", y="ticker", orientation="h",
-        color="return_display", color_continuous_scale=["#ef4444", "#22c55e"],
+        show_df,
+        x="return_display",
+        y="ticker",
+        orientation="h",
+        color="return_display",
+        color_continuous_scale=["#ef4444", "#22c55e"],
         labels={"return_display": "Return %", "ticker": ""},
     )
     fig.update_layout(
-        showlegend=False, coloraxis_showscale=False,
-        margin=dict(t=0, b=0, l=0, r=0), height=400,
+        showlegend=False,
+        coloraxis_showscale=False,
+        margin=dict(t=0, b=0, l=0, r=0),
+        height=400,
     )
     return fig
 
@@ -150,7 +156,7 @@ def portfolio_performance_figure(
 
     # Portfolio aggregate (market-value-weighted).
     if show_portfolio and len(ticker_series) > 1:
-        shares_map = dict(zip(df["ticker"], df["shares"]))
+        shares_map = dict(zip(df["ticker"], df["shares"], strict=True))
         portfolio_components = {
             ticker: close * shares_map.get(ticker, 0)
             for ticker, close in ticker_series.items()
@@ -161,10 +167,15 @@ def portfolio_performance_figure(
             portfolio_value = combined.sum(axis=1)
             if not portfolio_value.empty:
                 port_vals = (portfolio_value / portfolio_value.iloc[0]) * 100 if normalize else portfolio_value
-                fig.add_trace(go.Scatter(
-                    x=port_vals.index, y=port_vals.values, mode="lines",
-                    name="Portfolio", line=dict(color="white", width=3),
-                ))
+                fig.add_trace(
+                    go.Scatter(
+                        x=port_vals.index,
+                        y=port_vals.values,
+                        mode="lines",
+                        name="Portfolio",
+                        line=dict(color="white", width=3),
+                    )
+                )
 
     # SPY overlay.
     if show_spy:
@@ -174,10 +185,15 @@ def portfolio_performance_figure(
             if not spy_close.empty:
                 spy_close = _normalize_close_index(spy_close)
                 spy_vals = (spy_close / spy_close.iloc[0]) * 100 if normalize else spy_close
-                fig.add_trace(go.Scatter(
-                    x=spy_vals.index, y=spy_vals.values, mode="lines",
-                    name="SPY", line=dict(color="gray", width=2, dash="dash"),
-                ))
+                fig.add_trace(
+                    go.Scatter(
+                        x=spy_vals.index,
+                        y=spy_vals.values,
+                        mode="lines",
+                        name="SPY",
+                        line=dict(color="gray", width=2, dash="dash"),
+                    )
+                )
 
     y_label = "Indexed (100 = start)" if normalize else "Price ($)"
     fig.update_layout(

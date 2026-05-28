@@ -9,13 +9,15 @@ from loaders import alpha_engine as ae
 
 
 def _holdings():
-    return pd.DataFrame({
-        "ticker": ["EOG", "AAPL", "D05.SI"],  # D05.SI = SGX, not in AE universe
-        "name": ["EOG Resources", "Apple", "DBS Group"],
-        "shares": [100, 50, 200],
-        "market_value": [12000.0, 9000.0, 7000.0],
-        "weight_pct": [0.43, 0.32, 0.25],
-    })
+    return pd.DataFrame(
+        {
+            "ticker": ["EOG", "AAPL", "D05.SI"],  # D05.SI = SGX, not in AE universe
+            "name": ["EOG Resources", "Apple", "DBS Group"],
+            "shares": [100, 50, 200],
+            "market_value": [12000.0, 9000.0, 7000.0],
+            "weight_pct": [0.43, 0.32, 0.25],
+        }
+    )
 
 
 def _signals_doc():
@@ -23,10 +25,24 @@ def _signals_doc():
         "date": "2026-05-22",
         "market_regime": "caution",
         "signals": {
-            "EOG": {"ticker": "EOG", "signal": "ENTER", "rating": "BUY", "score": 75.7,
-                    "conviction": "stable", "thesis_summary": "Strong commodity cycle.", "sector": "Energy"},
-            "AAPL": {"ticker": "AAPL", "signal": "EXIT", "rating": "SELL", "score": 40.0,
-                     "conviction": "weakening", "thesis_summary": "Valuation stretched.", "sector": "Technology"},
+            "EOG": {
+                "ticker": "EOG",
+                "signal": "ENTER",
+                "rating": "BUY",
+                "score": 75.7,
+                "conviction": "stable",
+                "thesis_summary": "Strong commodity cycle.",
+                "sector": "Energy",
+            },
+            "AAPL": {
+                "ticker": "AAPL",
+                "signal": "EXIT",
+                "rating": "SELL",
+                "score": 40.0,
+                "conviction": "weakening",
+                "thesis_summary": "Valuation stretched.",
+                "sector": "Technology",
+            },
         },
         "buy_candidates": [
             {"ticker": "EOG", "signal": "ENTER", "score": 75.7, "rating": "BUY", "sector": "Energy"},
@@ -40,10 +56,20 @@ def _predictions_doc():
         "date": "2026-05-28",
         "model_hit_rate_30d": 0.55,
         "predictions": [
-            {"ticker": "EOG", "predicted_direction": "UP", "prediction_confidence": 0.7,
-             "predicted_alpha": 0.05, "momentum_veto": False},
-            {"ticker": "AAPL", "predicted_direction": "DOWN", "prediction_confidence": 0.8,
-             "predicted_alpha": -0.03, "momentum_veto": True},
+            {
+                "ticker": "EOG",
+                "predicted_direction": "UP",
+                "prediction_confidence": 0.7,
+                "predicted_alpha": 0.05,
+                "momentum_veto": False,
+            },
+            {
+                "ticker": "AAPL",
+                "predicted_direction": "DOWN",
+                "prediction_confidence": 0.8,
+                "predicted_alpha": -0.03,
+                "momentum_veto": True,
+            },
         ],
     }
 
@@ -82,8 +108,8 @@ def test_coverage_summary_counts():
     cov = ae.coverage_summary(joined)
     assert cov["n_holdings"] == 3
     assert cov["n_tracked"] == 2
-    assert cov["n_exit"] == 1   # AAPL
-    assert cov["n_veto"] == 1   # AAPL
+    assert cov["n_exit"] == 1  # AAPL
+    assert cov["n_veto"] == 1  # AAPL
 
 
 def test_unheld_buy_candidates_excludes_held():

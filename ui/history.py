@@ -24,20 +24,30 @@ def nav_vs_spy_figure(history: pd.DataFrame, *, normalize: bool = True) -> go.Fi
 
     nav = h["nav"]
     nav_vals = (nav / nav.iloc[0]) * 100 if normalize else nav
-    fig.add_trace(go.Scatter(
-        x=h["date"], y=nav_vals, mode="lines", name="Portfolio",
-        line=dict(color="#22c55e", width=3),
-    ))
+    fig.add_trace(
+        go.Scatter(
+            x=h["date"],
+            y=nav_vals,
+            mode="lines",
+            name="Portfolio",
+            line=dict(color="#22c55e", width=3),
+        )
+    )
 
     if "spy_close" in h.columns:
         spy = h["spy_close"].dropna()
         if len(spy) >= 2:
             spy_aligned = h.loc[spy.index]
             spy_vals = (spy / spy.iloc[0]) * 100 if normalize else spy
-            fig.add_trace(go.Scatter(
-                x=spy_aligned["date"], y=spy_vals, mode="lines", name="SPY",
-                line=dict(color="gray", width=2, dash="dash"),
-            ))
+            fig.add_trace(
+                go.Scatter(
+                    x=spy_aligned["date"],
+                    y=spy_vals,
+                    mode="lines",
+                    name="SPY",
+                    line=dict(color="gray", width=2, dash="dash"),
+                )
+            )
 
     fig.update_layout(
         height=450,

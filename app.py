@@ -118,8 +118,13 @@ with perf_col1:
 
 with perf_col2:
     perf_fig = charts.portfolio_performance_figure(
-        df, cache, period, selected_tickers,
-        normalize=normalize, show_spy=show_spy, show_portfolio=show_portfolio,
+        df,
+        cache,
+        period,
+        selected_tickers,
+        normalize=normalize,
+        show_spy=show_spy,
+        show_portfolio=show_portfolio,
     )
     if perf_fig is not None:
         st.plotly_chart(perf_fig, width="stretch")

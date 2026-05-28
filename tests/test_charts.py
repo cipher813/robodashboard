@@ -10,17 +10,19 @@ from ui import charts
 
 
 def _portfolio_df():
-    return pd.DataFrame({
-        "ticker": ["AAPL", "MSFT", "XOM"],
-        "shares": [10, 5, 20],
-        "market_value": [2000.0, 1500.0, 1800.0],
-        "sector": ["Technology", "Technology", "Energy"],
-        "return_pct": [0.25, 0.10, -0.05],
-        "1y_return": [0.30, 0.15, 0.02],
-        "3y_return": [0.20, 0.12, 0.08],
-        "5y_return": [0.18, 0.14, 0.06],
-        "10y_return": [0.16, 0.13, 0.05],
-    })
+    return pd.DataFrame(
+        {
+            "ticker": ["AAPL", "MSFT", "XOM"],
+            "shares": [10, 5, 20],
+            "market_value": [2000.0, 1500.0, 1800.0],
+            "sector": ["Technology", "Technology", "Energy"],
+            "return_pct": [0.25, 0.10, -0.05],
+            "1y_return": [0.30, 0.15, 0.02],
+            "3y_return": [0.20, 0.12, 0.08],
+            "5y_return": [0.18, 0.14, 0.06],
+            "10y_return": [0.16, 0.13, 0.05],
+        }
+    )
 
 
 class _FakeCache:
@@ -74,8 +76,13 @@ def test_portfolio_performance_figure_returns_none_without_tickers():
 
 def test_portfolio_performance_figure_includes_portfolio_and_spy():
     fig = charts.portfolio_performance_figure(
-        _portfolio_df(), _FakeCache(), "1Y", ["AAPL", "MSFT", "XOM"],
-        normalize=True, show_spy=True, show_portfolio=True,
+        _portfolio_df(),
+        _FakeCache(),
+        "1Y",
+        ["AAPL", "MSFT", "XOM"],
+        normalize=True,
+        show_spy=True,
+        show_portfolio=True,
     )
     assert fig is not None
     names = {trace.name for trace in fig.data}
@@ -84,8 +91,13 @@ def test_portfolio_performance_figure_includes_portfolio_and_spy():
 
 def test_portfolio_performance_figure_normalize_starts_at_100():
     fig = charts.portfolio_performance_figure(
-        _portfolio_df(), _FakeCache(), "1Y", ["AAPL"], normalize=True,
-        show_spy=False, show_portfolio=False,
+        _portfolio_df(),
+        _FakeCache(),
+        "1Y",
+        ["AAPL"],
+        normalize=True,
+        show_spy=False,
+        show_portfolio=False,
     )
     aapl = next(t for t in fig.data if t.name == "AAPL")
     assert aapl.y[0] == pytest.approx(100.0)
@@ -93,7 +105,12 @@ def test_portfolio_performance_figure_normalize_starts_at_100():
 
 def test_portfolio_performance_figure_can_hide_spy():
     fig = charts.portfolio_performance_figure(
-        _portfolio_df(), _FakeCache(), "1Y", ["AAPL"], show_spy=False, show_portfolio=False,
+        _portfolio_df(),
+        _FakeCache(),
+        "1Y",
+        ["AAPL"],
+        show_spy=False,
+        show_portfolio=False,
     )
     assert "SPY" not in {t.name for t in fig.data}
 

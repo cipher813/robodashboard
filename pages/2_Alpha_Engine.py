@@ -74,8 +74,18 @@ if tracked.empty:
     st.info("None of your current holdings are in the alpha-engine research universe (S&P 500+400).")
 else:
     display_cols = [
-        "ticker", "name", "market_value", "weight_pct", "signal", "rating", "score",
-        "conviction", "predicted_direction", "prediction_confidence", "predicted_alpha", "momentum_veto",
+        "ticker",
+        "name",
+        "market_value",
+        "weight_pct",
+        "signal",
+        "rating",
+        "score",
+        "conviction",
+        "predicted_direction",
+        "prediction_confidence",
+        "predicted_alpha",
+        "momentum_veto",
     ]
     show = tracked[[c for c in display_cols if c in tracked.columns]].copy()
     if "weight_pct" in show:
@@ -99,8 +109,12 @@ else:
             "conviction": st.column_config.TextColumn("Conviction"),
             "predicted_direction": st.column_config.TextColumn("Pred. Dir", help="UP / FLAT / DOWN"),
             "prediction_confidence": st.column_config.NumberColumn("Confidence", format="%.0f%%"),
-            "predicted_alpha": st.column_config.NumberColumn("Pred. 21d α", format="%+.1f%%", help="Predicted 21-day market-relative alpha"),
-            "momentum_veto": st.column_config.CheckboxColumn("Veto", help="High-confidence DOWN → executor HOLD override"),
+            "predicted_alpha": st.column_config.NumberColumn(
+                "Pred. 21d α", format="%+.1f%%", help="Predicted 21-day market-relative alpha"
+            ),
+            "momentum_veto": st.column_config.CheckboxColumn(
+                "Veto", help="High-confidence DOWN → executor HOLD override"
+            ),
         },
     )
 
@@ -111,10 +125,7 @@ else:
                 st.caption(r["thesis_summary"])
 
 if not untracked.empty:
-    st.caption(
-        "Not in the research universe: "
-        + ", ".join(sorted(untracked["ticker"].tolist()))
-    )
+    st.caption("Not in the research universe: " + ", ".join(sorted(untracked["ticker"].tolist())))
 
 # ── Buy candidates you don't hold ────────────────────────────────────────────
 
@@ -126,7 +137,9 @@ else:
     import pandas as pd
 
     cand_df = pd.DataFrame(unheld)
-    cand_cols = [c for c in ["ticker", "sector", "rating", "score", "conviction", "sector_rating"] if c in cand_df.columns]
+    cand_cols = [
+        c for c in ["ticker", "sector", "rating", "score", "conviction", "sector_rating"] if c in cand_df.columns
+    ]
     st.dataframe(
         cand_df[cand_cols].sort_values("score", ascending=False) if "score" in cand_cols else cand_df[cand_cols],
         width="stretch",
