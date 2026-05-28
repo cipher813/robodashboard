@@ -49,31 +49,27 @@ def account_label(account: dict, labels: dict | None) -> str:
     return labels.get(number) or labels.get(name) or name
 
 
-def render_account_breakdown(reader, labels: dict | None = None) -> None:  # pragma: no cover
-    """Render the expandable per-account cash breakdown (requires a reader).
+def render_account_breakdown(rows: list[dict] | None) -> None:  # pragma: no cover
+    """Render the expandable per-account breakdown: positions + cash + total (USD).
 
-    ``labels`` maps an account number (or raw name) to a friendly display
-    label (from config ``accounts:``); unmapped accounts show their raw name.
+    ``rows`` come from ``loaders.portfolio_loader.account_breakdown`` — each has
+    label / positions / cash / total (all USD).
     """
-    if not reader:
+    if not rows:
         return
     with st.expander("Account breakdown"):
-        try:
-            balances = reader.get_balances()
-            accounts = reader.get_accounts()
-            acct_data = [
-                {
-                    "Account": account_label(acct, labels),
-                    "Type": acct["type"],
-                    "Institution": acct["institution"],
-                    "Cash": balances.get(acct["name"], 0),
-                }
-                for acct in accounts
-            ]
-            if acct_data:
-                st.dataframe(pd.DataFrame(acct_data), width="stretch", hide_index=True)
-            cash_total = balances.get("total", 0)
-            if cash_total > 0:
-                st.metric("Total Cash", f"${cash_total:,.0f}")
-        except Exception as e:
-            st.warning(f"Could not load account details: {e}")
+        table = [
+            {"Account": r["label"], "Positions": r["positions"], "Cash": r["cash"], "Total": r["total"]} for r in rows
+        ]
+        st.dataframe(
+            pd.DataFrame(table),
+            width="stretch",
+            hide_index=True,
+            column_config={
+                "Positions": st.column_config.NumberColumn("Positions", format="$%,.0f"),
+                "Cash": st.column_config.NumberColumn("Cash", format="$%,.0f"),
+                "Total": st.column_config.NumberColumn("Total", format="$%,.0f"),
+            },
+        )
+        grand_total = sum(r["total"] for r in rows)
+        st.metric("Total (positions + cash)", f"${grand_total:,.0f}")
