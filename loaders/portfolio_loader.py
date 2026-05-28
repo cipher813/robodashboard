@@ -77,6 +77,7 @@ def load_portfolio(reader: SnapTradeReader | None, cache: PriceCache) -> tuple[p
         ticker = _normalize_ticker(row["ticker"])
         shares = row["shares"]
         avg_cost = row.get("avg_cost", 0)
+        currency = row.get("currency", "USD") or "USD"
 
         # Price history + info
         hist = cache.get_history(ticker)
@@ -84,25 +85,35 @@ def load_portfolio(reader: SnapTradeReader | None, cache: PriceCache) -> tuple[p
         close = hist["Close"] if not hist.empty else pd.Series(dtype=float)
         current_price = float(close.iloc[-1]) if not close.empty else 0
 
-        # Compute metrics
+        # Compute metrics. current_price/avg_cost are in the security's native
+        # currency; returns/ratios are currency-independent so they need no FX.
         returns = compute_returns(close) if not close.empty else {}
         beta = compute_beta(close, spy_close) if not close.empty and not spy_close.empty else None
         rsi = compute_rsi(close) if not close.empty else None
         personal_ret = compute_personal_return(current_price, avg_cost)
-        market_value = shares * current_price
-        unrealized_pnl = market_value - (shares * avg_cost) if avg_cost else 0
         pct_52w = pct_from_52w_high(current_price, info.get("fifty_two_week_high"))
         acq_date = estimate_acquisition_date(close, avg_cost)
         vs_spy = compute_vs_spy(close, spy_close, acq_date)
+
+        # Value amounts: compute in native currency, then convert to USD so NAV,
+        # weights, and P&L aggregate correctly across currencies.
+        fx = cache.get_fx_rate(currency)
+        market_value_local = shares * current_price
+        pnl_local = market_value_local - (shares * avg_cost) if avg_cost else 0
+        market_value = market_value_local * fx
+        unrealized_pnl = pnl_local * fx
 
         enriched_rows.append(
             {
                 "ticker": ticker,
                 "name": info.get("name", ticker),
                 "sector": info.get("sector", ""),
+                "currency": currency,
+                "fx_to_usd": fx,
                 "shares": shares,
                 "avg_cost": avg_cost,
                 "current_price": current_price,
+                "market_value_local": market_value_local,
                 "market_value": market_value,
                 "unrealized_pnl": unrealized_pnl,
                 "return_pct": personal_ret,

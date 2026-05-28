@@ -81,10 +81,15 @@ class SnapTradeReader:
             ticker = symbol_obj.get("symbol", "") if isinstance(symbol_obj, dict) else str(symbol_obj)
             if not ticker:
                 continue
+            # Native trading currency (e.g. SGD for SGX, HKD for SEHK). Prefer the
+            # symbol's currency; fall back to the position-level currency, then USD.
+            ccy_obj = (symbol_obj.get("currency") if isinstance(symbol_obj, dict) else None) or pos.get("currency")
+            currency = ccy_obj.get("code", "USD") if isinstance(ccy_obj, dict) else "USD"
             holdings.append(
                 {
                     "account_id": account_id,
                     "ticker": ticker,
+                    "currency": currency,
                     "shares": float(pos.get("units", 0)),
                     "avg_cost": float(pos.get("average_purchase_price") or 0),
                     "current_price": float(pos.get("price") or 0),
@@ -123,6 +128,7 @@ class SnapTradeReader:
         agg = (
             df.groupby("ticker")
             .agg(
+                currency=("currency", "first"),  # constant per ticker
                 shares=("shares", "sum"),
                 total_cost=("avg_cost", lambda x: (x * df.loc[x.index, "shares"]).sum()),
                 market_value=("market_value", "sum"),
