@@ -1,0 +1,10 @@
+[Unit]
+Description=RoboDashboard daily portfolio snapshot
+After=network.target
+
+[Service]
+Type=oneshot
+User=ec2-user
+WorkingDirectory=/home/ec2-user/robodashboard
+ExecStartPre=/home/ec2-user/robodashboard/infrastructure/load_secrets.sh
+ExecStart=/home/ec2-user/robodashboard/.venv/bin/python scripts/daily_snapshot.py
