@@ -16,6 +16,13 @@ def test_ticker_is_the_only_always_on_column():
     assert always == ["ticker"]
 
 
+def test_currency_columns_present_and_default_on():
+    for k in ("currency", "market_value_local", "market_value"):
+        assert k in columns.ALL_COLUMNS
+        assert k in columns.DEFAULT_ON
+    assert "USD" in columns.ALL_COLUMNS["market_value"]["label"]
+
+
 def test_apply_display_formatting_scales_pct_columns():
     df = pd.DataFrame(
         {
