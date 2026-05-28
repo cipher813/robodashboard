@@ -27,6 +27,8 @@ ignore = [
 # modules legitimately place imports after that call.
 "app.py" = ["E402"]
 "pages/*.py" = ["E402"]
+# Entry script inserts the repo root on sys.path before importing app modules.
+"scripts/*.py" = ["E402"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
