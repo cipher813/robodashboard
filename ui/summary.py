@@ -32,8 +32,24 @@ def render_summary_cards(df: pd.DataFrame) -> None:  # pragma: no cover
     col4.metric("Sectors", t["n_sectors"])
 
 
-def render_account_breakdown(reader) -> None:  # pragma: no cover
-    """Render the expandable per-account cash breakdown (requires a reader)."""
+def account_label(account: dict, labels: dict | None) -> str:
+    """Friendly label for an account.
+
+    Looks up the user-configured label by account number first, then by raw
+    SnapTrade name; falls back to the SnapTrade name when unmapped.
+    """
+    labels = labels or {}
+    number = str(account.get("number", ""))
+    name = account.get("name", "")
+    return labels.get(number) or labels.get(name) or name
+
+
+def render_account_breakdown(reader, labels: dict | None = None) -> None:  # pragma: no cover
+    """Render the expandable per-account cash breakdown (requires a reader).
+
+    ``labels`` maps an account number (or raw name) to a friendly display
+    label (from config ``accounts:``); unmapped accounts show their raw name.
+    """
     if not reader:
         return
     with st.expander("Account breakdown"):
@@ -42,7 +58,7 @@ def render_account_breakdown(reader) -> None:  # pragma: no cover
             accounts = reader.get_accounts()
             acct_data = [
                 {
-                    "Account": acct["name"],
+                    "Account": account_label(acct, labels),
                     "Type": acct["type"],
                     "Institution": acct["institution"],
                     "Cash": balances.get(acct["name"], 0),

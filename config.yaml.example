@@ -23,6 +23,15 @@ alpha_engine:
   enabled: true
   bucket: alpha-engine-research
 
+# Friendly labels for the account breakdown, keyed by brokerage account number
+# (or the raw SnapTrade account name). Unmapped accounts show their raw name.
+# Real account numbers are NOT committed — set these in your gitignored
+# config.yaml (or, for the hosted dashboard, in SSM /alpha-engine/robodashboard/).
+accounts:
+  U00000001: "Traditional IRA"
+  U00000002: "Roth IRA"
+  U00000003: "Taxable"
+
 # Phase 4 — AI advisor
 # investor_profile:
 #   strategy: "growth with income"

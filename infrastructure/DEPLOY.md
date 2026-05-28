@@ -26,6 +26,29 @@ aws ssm put-parameter --type SecureString --name /alpha-engine/robodashboard/SNA
 
 Take the values from your local `.env`. Do not echo them into a shared shell history you don't control.
 
+### App config (account labels, etc.) — `config-yaml` param
+
+Non-secret app config lives in one SSM param that `load_secrets.sh` writes to
+`config.yaml` on the box (mirrors morning-signal's `/morning-signal/config-yaml`).
+Account labels (number → friendly name) go here so the hosted dashboard shows
+them. Real account numbers are NOT committed to the repo:
+
+```
+aws ssm put-parameter --type SecureString --name /alpha-engine/robodashboard/config-yaml --overwrite --value "$(cat <<'YAML'
+alpha_engine:
+  enabled: true
+  bucket: alpha-engine-research
+accounts:
+  U23569039: "Traditional IRA"
+  U23568545: "Roth IRA"
+  U24215043: "Taxable"
+YAML
+)"
+```
+
+`load_secrets.sh` splits this out from the `SNAPTRADE_*` secrets (it's written to
+`config.yaml`, not `.env`). Re-run after editing: `sudo systemctl restart robodashboard`.
+
 ## 2. Deploy to the EC2 (via SSM)
 
 Clone the repo, build the venv, install the systemd units, enable services:
