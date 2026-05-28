@@ -23,6 +23,25 @@ def test_portfolio_totals():
     assert t["n_sectors"] == 2
 
 
+def test_return_pct_uses_usd_cost_not_native_currency():
+    # Regression for B1: a USD gainer + a non-USD holding. Summing native
+    # avg_cost*shares (2nd row is HKD) would overstate cost and flip the return
+    # negative on a real net gain. cost must be NAV - P&L (USD).
+    df = pd.DataFrame(
+        {
+            "market_value": [10000.0, 12585.0],  # USD
+            "unrealized_pnl": [4000.0, -125.0],  # USD → net +3875 gain
+            "avg_cost": [50.0, 82.96],  # 2nd is native HKD
+            "shares": [100, 1200],
+            "sector": ["Tech", "Financials"],
+        }
+    )
+    t = summary.portfolio_totals(df)
+    assert t["pnl"] == 3875.0
+    assert t["cost"] == 22585.0 - 3875.0  # USD cost, not 50*100 + 82.96*1200
+    assert t["return_pct"] > 0  # a gain, not the buggy negative
+
+
 def test_account_label_by_number():
     acct = {"number": "U12345678", "name": "Interactive Brokers (Long Name)"}
     labels = {"U12345678": "Roth IRA"}
