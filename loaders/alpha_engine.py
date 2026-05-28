@@ -93,25 +93,27 @@ def join_holdings(
         sig = sig_by_ticker.get(ticker, {})
         pred = pred_by_ticker.get(ticker, {})
         tracked = bool(sig) or bool(pred)
-        rows.append({
-            "ticker": ticker,
-            "name": h.get("name", ticker),
-            "shares": h.get("shares"),
-            "market_value": h.get("market_value"),
-            "weight_pct": h.get("weight_pct"),
-            "tracked": tracked,
-            # Research view
-            "signal": sig.get("signal"),
-            "rating": sig.get("rating"),
-            "score": sig.get("score"),
-            "conviction": sig.get("conviction"),
-            "thesis_summary": sig.get("thesis_summary"),
-            # Predictor view
-            "predicted_direction": pred.get("predicted_direction"),
-            "prediction_confidence": pred.get("prediction_confidence"),
-            "predicted_alpha": pred.get("predicted_alpha"),
-            "momentum_veto": pred.get("momentum_veto"),
-        })
+        rows.append(
+            {
+                "ticker": ticker,
+                "name": h.get("name", ticker),
+                "shares": h.get("shares"),
+                "market_value": h.get("market_value"),
+                "weight_pct": h.get("weight_pct"),
+                "tracked": tracked,
+                # Research view
+                "signal": sig.get("signal"),
+                "rating": sig.get("rating"),
+                "score": sig.get("score"),
+                "conviction": sig.get("conviction"),
+                "thesis_summary": sig.get("thesis_summary"),
+                # Predictor view
+                "predicted_direction": pred.get("predicted_direction"),
+                "prediction_confidence": pred.get("prediction_confidence"),
+                "predicted_alpha": pred.get("predicted_alpha"),
+                "momentum_veto": pred.get("momentum_veto"),
+            }
+        )
 
     df = pd.DataFrame(rows)
     if not df.empty:

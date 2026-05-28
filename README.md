@@ -1,5 +1,8 @@
 [![CI](https://github.com/cipher813/robodashboard/actions/workflows/ci.yml/badge.svg)](https://github.com/cipher813/robodashboard/actions/workflows/ci.yml)
+[![CodeQL](https://github.com/cipher813/robodashboard/actions/workflows/codeql.yml/badge.svg)](https://github.com/cipher813/robodashboard/actions/workflows/codeql.yml)
+[![Coverage](https://img.shields.io/badge/coverage-93%25-brightgreen.svg)](#tests)
 [![Python](https://img.shields.io/badge/python-3.11+-blue.svg)]()
+[![Ruff](https://img.shields.io/badge/lint-ruff-261230.svg)](https://github.com/astral-sh/ruff)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 # RoboDashboard
@@ -147,13 +150,40 @@ cache:
 | `SNAPTRADE_USER_ID` | Created during account linking |
 | `SNAPTRADE_USER_SECRET` | Created during account linking |
 
+## Development
+
+```bash
+python3 -m venv .venv && source .venv/bin/activate
+pip install -r requirements-dev.txt
+pre-commit install      # gitleaks + ruff on every commit
+```
+
+- **Lint / format:** `ruff check .` and `ruff format .` (config in `pyproject.toml`)
+- **Tests:** `pytest` — pure-logic suite, no network/credentials needed
+- **Coverage:** `pytest --cov` — 90% gate on the testable surface (Streamlit-render
+  functions are `# pragma: no cover` and verified via `streamlit.testing.v1.AppTest`)
+
+See [`CONTRIBUTING.md`](CONTRIBUTING.md) for the full workflow and [`SECURITY.md`](SECURITY.md) for the threat model.
+
+## Tests
+
+The suite covers the pure-logic layer — metric computation, portfolio enrichment, snapshot
+persistence, the alpha-engine signal join, and the Plotly figure builders — and runs in a
+couple of seconds without touching SnapTrade, yfinance, or S3. Current coverage on the
+testable surface is **93%**.
+
 ## CI/CD
 
-GitHub Actions runs on push to `main` and PRs:
+GitHub Actions runs on every push to `main` and PR:
 
-1. **Tests** -- pytest on Python 3.11 + 3.12
-2. **Secrets scan** -- gitleaks v2
-3. **Dependency audit** -- pip-audit (with cryptography CVE exclusions from SnapTrade SDK pin)
+1. **Lint** -- `ruff check` + `ruff format --check`
+2. **Tests** -- pytest with coverage on Python 3.11 / 3.12 / 3.13 (90% gate)
+3. **Secrets scan** -- gitleaks
+4. **Dependency audit** -- pip-audit (with cryptography CVE exclusions from the SnapTrade SDK pin)
+5. **CodeQL** -- security-and-quality analysis (push, PR, and weekly)
+
+Dependencies and GitHub Actions are kept current by Dependabot (weekly). `main` is
+branch-protected — all changes land via PR with green CI.
 
 ## Stack
 

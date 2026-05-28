@@ -26,7 +26,9 @@ INFO_CACHE_MAX_AGE_HOURS = 168  # 1 week
 class PriceCache:
     """Fetch and cache historical prices from yfinance."""
 
-    def __init__(self, cache_dir: str = "cache", max_age_hours: int = 24, info_max_age_hours: int = INFO_CACHE_MAX_AGE_HOURS):
+    def __init__(
+        self, cache_dir: str = "cache", max_age_hours: int = 24, info_max_age_hours: int = INFO_CACHE_MAX_AGE_HOURS
+    ):
         self._cache_dir = Path(cache_dir)
         self._cache_dir.mkdir(parents=True, exist_ok=True)
         self._prices_dir = self._cache_dir / "prices"
@@ -114,8 +116,14 @@ class PriceCache:
             # Return cached if available, even if stale
             if cache_path.exists():
                 return json.loads(cache_path.read_text())
-            return {"name": ticker, "sector": "", "dividend_yield": None, "beta": None,
-                    "fifty_two_week_high": None, "fifty_two_week_low": None}
+            return {
+                "name": ticker,
+                "sector": "",
+                "dividend_yield": None,
+                "beta": None,
+                "fifty_two_week_high": None,
+                "fifty_two_week_low": None,
+            }
 
     def refresh_all(self, tickers: list[str]) -> None:
         """Batch refresh price history and info for all tickers."""

@@ -2,7 +2,6 @@
 
 import numpy as np
 import pandas as pd
-import pytest
 
 from data.metrics import (
     compute_beta,
@@ -55,8 +54,7 @@ class TestComputeBeta:
     def test_correlated_stock(self):
         np.random.seed(42)
         spy_returns = np.random.randn(300) * 0.01
-        spy = pd.Series(100 * np.cumprod(1 + spy_returns),
-                        index=pd.date_range(end="2026-04-07", periods=300, freq="B"))
+        spy = pd.Series(100 * np.cumprod(1 + spy_returns), index=pd.date_range(end="2026-04-07", periods=300, freq="B"))
         # Stock moves 1.5x the market
         stock_returns = spy_returns * 1.5
         stock = pd.Series(100 * np.cumprod(1 + stock_returns), index=spy.index)
@@ -97,8 +95,9 @@ class TestComputeRSI:
 
     def test_range(self):
         np.random.seed(42)
-        prices = pd.Series(100 + np.random.randn(100).cumsum(),
-                           index=pd.date_range(end="2026-04-07", periods=100, freq="B"))
+        prices = pd.Series(
+            100 + np.random.randn(100).cumsum(), index=pd.date_range(end="2026-04-07", periods=100, freq="B")
+        )
         rsi = compute_rsi(prices)
         assert rsi is not None
         assert 0 <= rsi <= 100

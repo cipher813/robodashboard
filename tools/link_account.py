@@ -71,7 +71,7 @@ def main():
         print(f"Response: {response.body}")
         sys.exit(1)
 
-    print(f"\nOpening browser to link your brokerage account...")
+    print("\nOpening browser to link your brokerage account...")
     print(f"URL: {redirect_url}")
     webbrowser.open(redirect_url)
 

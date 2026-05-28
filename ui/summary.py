@@ -22,7 +22,7 @@ def portfolio_totals(df: pd.DataFrame) -> dict:
     }
 
 
-def render_summary_cards(df: pd.DataFrame) -> None:
+def render_summary_cards(df: pd.DataFrame) -> None:  # pragma: no cover
     """Render the four headline metric cards."""
     t = portfolio_totals(df)
     col1, col2, col3, col4 = st.columns(4)
@@ -32,7 +32,7 @@ def render_summary_cards(df: pd.DataFrame) -> None:
     col4.metric("Sectors", t["n_sectors"])
 
 
-def render_account_breakdown(reader) -> None:
+def render_account_breakdown(reader) -> None:  # pragma: no cover
     """Render the expandable per-account cash breakdown (requires a reader)."""
     if not reader:
         return

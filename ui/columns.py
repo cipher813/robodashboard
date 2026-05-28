@@ -16,39 +16,148 @@ import streamlit as st
 #   pct_raw  — same as pct (kept distinct for provenance: already-percentage-ish source)
 ALL_COLUMNS: dict[str, dict] = {
     # Core
-    "ticker": {"label": "Ticker", "config": st.column_config.TextColumn("Ticker", width="small"), "group": "core", "always": True},
+    "ticker": {
+        "label": "Ticker",
+        "config": st.column_config.TextColumn("Ticker", width="small"),
+        "group": "core",
+        "always": True,
+    },
     "name": {"label": "Name", "config": st.column_config.TextColumn("Name", width="medium"), "group": "core"},
     "shares": {"label": "Shares", "config": st.column_config.NumberColumn("Shares", format="%.0f"), "group": "core"},
-    "current_price": {"label": "Price", "config": st.column_config.NumberColumn("Price", format="$%.2f"), "group": "core"},
-    "market_value": {"label": "Mkt Value", "config": st.column_config.NumberColumn("Mkt Value", format="$%,.0f"), "group": "core"},
+    "current_price": {
+        "label": "Price",
+        "config": st.column_config.NumberColumn("Price", format="$%.2f"),
+        "group": "core",
+    },
+    "market_value": {
+        "label": "Mkt Value",
+        "config": st.column_config.NumberColumn("Mkt Value", format="$%,.0f"),
+        "group": "core",
+    },
     # Position
     "sector": {"label": "Sector", "config": st.column_config.TextColumn("Sector", width="medium"), "group": "position"},
-    "weight_pct": {"label": "Weight %", "config": st.column_config.NumberColumn("Weight %", format="%.1f%%", help="Position as % of total NAV"), "group": "position", "pct": True},
-    "avg_cost": {"label": "Avg Cost", "config": st.column_config.NumberColumn("Avg Cost", format="$%.2f"), "group": "position"},
-    "unrealized_pnl": {"label": "P&L", "config": st.column_config.NumberColumn("P&L", format="$%,.0f"), "group": "position"},
-    "est_acq_date": {"label": "Est. Acquired", "config": st.column_config.TextColumn("Est. Acquired", help="Estimated acquisition date based on avg cost"), "group": "position"},
+    "weight_pct": {
+        "label": "Weight %",
+        "config": st.column_config.NumberColumn("Weight %", format="%.1f%%", help="Position as % of total NAV"),
+        "group": "position",
+        "pct": True,
+    },
+    "avg_cost": {
+        "label": "Avg Cost",
+        "config": st.column_config.NumberColumn("Avg Cost", format="$%.2f"),
+        "group": "position",
+    },
+    "unrealized_pnl": {
+        "label": "P&L",
+        "config": st.column_config.NumberColumn("P&L", format="$%,.0f"),
+        "group": "position",
+    },
+    "est_acq_date": {
+        "label": "Est. Acquired",
+        "config": st.column_config.TextColumn("Est. Acquired", help="Estimated acquisition date based on avg cost"),
+        "group": "position",
+    },
     # Performance
-    "return_pct": {"label": "My Return", "config": st.column_config.NumberColumn("My Return", format="%.1f%%", help="Personal return vs cost basis"), "group": "performance", "pct": True},
-    "vs_spy": {"label": "vs SPY", "config": st.column_config.NumberColumn("vs SPY", format="%+.1f%%", help="Outperformance vs SPY since est. acquisition"), "group": "performance", "pct": True},
-    "1y_return": {"label": "1Y Return", "config": st.column_config.NumberColumn("1Y", format="%.1f%%", help="Stock 1-year return"), "group": "performance", "pct": True},
-    "3y_return": {"label": "3Y Return", "config": st.column_config.NumberColumn("3Y", format="%.1f%%", help="Stock 3-year annualized return"), "group": "performance", "pct": True},
-    "5y_return": {"label": "5Y Return", "config": st.column_config.NumberColumn("5Y", format="%.1f%%", help="Stock 5-year annualized return"), "group": "performance", "pct": True},
-    "10y_return": {"label": "10Y Return", "config": st.column_config.NumberColumn("10Y", format="%.1f%%", help="Stock 10-year annualized return"), "group": "performance", "pct": True},
+    "return_pct": {
+        "label": "My Return",
+        "config": st.column_config.NumberColumn("My Return", format="%.1f%%", help="Personal return vs cost basis"),
+        "group": "performance",
+        "pct": True,
+    },
+    "vs_spy": {
+        "label": "vs SPY",
+        "config": st.column_config.NumberColumn(
+            "vs SPY", format="%+.1f%%", help="Outperformance vs SPY since est. acquisition"
+        ),
+        "group": "performance",
+        "pct": True,
+    },
+    "1y_return": {
+        "label": "1Y Return",
+        "config": st.column_config.NumberColumn("1Y", format="%.1f%%", help="Stock 1-year return"),
+        "group": "performance",
+        "pct": True,
+    },
+    "3y_return": {
+        "label": "3Y Return",
+        "config": st.column_config.NumberColumn("3Y", format="%.1f%%", help="Stock 3-year annualized return"),
+        "group": "performance",
+        "pct": True,
+    },
+    "5y_return": {
+        "label": "5Y Return",
+        "config": st.column_config.NumberColumn("5Y", format="%.1f%%", help="Stock 5-year annualized return"),
+        "group": "performance",
+        "pct": True,
+    },
+    "10y_return": {
+        "label": "10Y Return",
+        "config": st.column_config.NumberColumn("10Y", format="%.1f%%", help="Stock 10-year annualized return"),
+        "group": "performance",
+        "pct": True,
+    },
     # Valuation
-    "pe_ratio": {"label": "P/E", "config": st.column_config.NumberColumn("P/E", format="%.1f", help="Trailing P/E ratio"), "group": "valuation"},
-    "forward_pe": {"label": "Fwd P/E", "config": st.column_config.NumberColumn("Fwd P/E", format="%.1f", help="Forward P/E ratio"), "group": "valuation"},
-    "peg_ratio": {"label": "PEG", "config": st.column_config.NumberColumn("PEG", format="%.2f", help="P/E to Growth ratio"), "group": "valuation"},
-    "ev_to_ebitda": {"label": "EV/EBITDA", "config": st.column_config.NumberColumn("EV/EBITDA", format="%.1f", help="Enterprise value to EBITDA"), "group": "valuation"},
-    "earnings_growth": {"label": "EPS Growth", "config": st.column_config.NumberColumn("EPS Growth", format="%.1f%%", help="Year-over-year earnings growth"), "group": "valuation", "pct_raw": True},
-    "revenue_growth": {"label": "Rev Growth", "config": st.column_config.NumberColumn("Rev Growth", format="%.1f%%", help="Year-over-year revenue growth"), "group": "valuation", "pct_raw": True},
+    "pe_ratio": {
+        "label": "P/E",
+        "config": st.column_config.NumberColumn("P/E", format="%.1f", help="Trailing P/E ratio"),
+        "group": "valuation",
+    },
+    "forward_pe": {
+        "label": "Fwd P/E",
+        "config": st.column_config.NumberColumn("Fwd P/E", format="%.1f", help="Forward P/E ratio"),
+        "group": "valuation",
+    },
+    "peg_ratio": {
+        "label": "PEG",
+        "config": st.column_config.NumberColumn("PEG", format="%.2f", help="P/E to Growth ratio"),
+        "group": "valuation",
+    },
+    "ev_to_ebitda": {
+        "label": "EV/EBITDA",
+        "config": st.column_config.NumberColumn("EV/EBITDA", format="%.1f", help="Enterprise value to EBITDA"),
+        "group": "valuation",
+    },
+    "earnings_growth": {
+        "label": "EPS Growth",
+        "config": st.column_config.NumberColumn("EPS Growth", format="%.1f%%", help="Year-over-year earnings growth"),
+        "group": "valuation",
+        "pct_raw": True,
+    },
+    "revenue_growth": {
+        "label": "Rev Growth",
+        "config": st.column_config.NumberColumn("Rev Growth", format="%.1f%%", help="Year-over-year revenue growth"),
+        "group": "valuation",
+        "pct_raw": True,
+    },
     # Fundamentals
-    "debt_to_equity": {"label": "D/E", "config": st.column_config.NumberColumn("D/E", format="%.1f", help="Debt-to-equity ratio"), "group": "fundamentals"},
+    "debt_to_equity": {
+        "label": "D/E",
+        "config": st.column_config.NumberColumn("D/E", format="%.1f", help="Debt-to-equity ratio"),
+        "group": "fundamentals",
+    },
     # Technical
-    "beta": {"label": "Beta", "config": st.column_config.NumberColumn("Beta", format="%.2f", help="1-year beta vs SPY"), "group": "technical"},
-    "rsi": {"label": "RSI (14d)", "config": st.column_config.NumberColumn("RSI", format="%.0f", help="14-day RSI"), "group": "technical"},
-    "pct_from_52w_high": {"label": "vs 52W High", "config": st.column_config.NumberColumn("vs 52W Hi", format="%.1f%%", help="% from 52-week high"), "group": "technical", "pct": True},
+    "beta": {
+        "label": "Beta",
+        "config": st.column_config.NumberColumn("Beta", format="%.2f", help="1-year beta vs SPY"),
+        "group": "technical",
+    },
+    "rsi": {
+        "label": "RSI (14d)",
+        "config": st.column_config.NumberColumn("RSI", format="%.0f", help="14-day RSI"),
+        "group": "technical",
+    },
+    "pct_from_52w_high": {
+        "label": "vs 52W High",
+        "config": st.column_config.NumberColumn("vs 52W Hi", format="%.1f%%", help="% from 52-week high"),
+        "group": "technical",
+        "pct": True,
+    },
     # Income
-    "dividend_yield": {"label": "Div Yield", "config": st.column_config.NumberColumn("Div Yield", format="%.2f%%", help="Forward dividend yield"), "group": "income"},
+    "dividend_yield": {
+        "label": "Div Yield",
+        "config": st.column_config.NumberColumn("Div Yield", format="%.2f%%", help="Forward dividend yield"),
+        "group": "income",
+    },
 }
 
 # Group label → ordered list of selectable column keys (excludes always-on).
@@ -64,13 +173,22 @@ COLUMN_GROUPS: dict[str, list[str]] = {
 
 # Columns checked on by default in the selector.
 DEFAULT_ON: set[str] = {
-    "name", "shares", "current_price", "market_value", "sector", "weight_pct",
-    "unrealized_pnl", "return_pct", "vs_spy", "pe_ratio", "dividend_yield",
+    "name",
+    "shares",
+    "current_price",
+    "market_value",
+    "sector",
+    "weight_pct",
+    "unrealized_pnl",
+    "return_pct",
+    "vs_spy",
+    "pe_ratio",
+    "dividend_yield",
     "pct_from_52w_high",
 }
 
 
-def render_column_selector(display_df: pd.DataFrame) -> list[str]:
+def render_column_selector(display_df: pd.DataFrame) -> list[str]:  # pragma: no cover
     """Render the grouped checkbox selector and return chosen column keys.
 
     Always-on columns (ticker) are prepended to the returned list.

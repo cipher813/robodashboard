@@ -39,10 +39,7 @@ if summary["spy_return"] is not None:
     col3.metric("SPY (same window)", f"{summary['spy_return']:.1%}")
     col4.metric("Alpha vs SPY", f"{summary['alpha']:+.1%}")
 
-st.caption(
-    f"{summary['n_days']} daily snapshots · "
-    f"{summary['start_date'].date()} → {summary['end_date'].date()}"
-)
+st.caption(f"{summary['n_days']} daily snapshots · {summary['start_date'].date()} → {summary['end_date'].date()}")
 
 normalize = st.checkbox("Normalize to 100", value=True, key="hist_normalize")
 fig = history_ui.nav_vs_spy_figure(history, normalize=normalize)

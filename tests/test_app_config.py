@@ -1,7 +1,5 @@
 """Tests for app_config.py — config load + client init."""
 
-from pathlib import Path
-
 from app_config import init_clients, load_config
 
 
