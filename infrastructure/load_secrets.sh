@@ -1,43 +1,60 @@
 #!/usr/bin/env bash
-# Pull RoboDashboard secrets from SSM Parameter Store into a 0600 .env file.
+# Pull RoboDashboard config + secrets from SSM Parameter Store.
 #
 # Runs as systemd ExecStartPre (see robodashboard.service). The EC2 instance
 # role (alpha-engine-executor-role) already has ssm:GetParametersByPath +
-# decrypt on /alpha-engine/*, so secrets live under /alpha-engine/robodashboard/.
+# decrypt on /alpha-engine/*, so everything lives under /alpha-engine/robodashboard/:
+#   SNAPTRADE_*   → written to .env (0600)         — read-only brokerage creds
+#   config-yaml   → written to config.yaml         — non-secret app config (account labels)
 #
 # AWS access (S3 reads for the Alpha Engine page) uses the instance role — no
-# AWS keys are stored. Only the SnapTrade read-only credentials come from SSM.
+# AWS keys are stored.
 #
 # NOTE: never run this with `set -x` / `bash -x` — that would trace the secret
-# values into the journal. Values are consumed by the read loop, never echoed.
+# values. Values flow SSM → env var → python → file; they are never echoed.
 set -euo pipefail
 
 APP_DIR="${APP_DIR:-/home/ec2-user/robodashboard}"
 SSM_PREFIX="${SSM_PREFIX:-/alpha-engine/robodashboard}"
 REGION="${AWS_REGION:-us-east-1}"
 ENV_FILE="$APP_DIR/.env"
+CONFIG_FILE="$APP_DIR/config.yaml"
 
 umask 077
-tmp="$(mktemp)"
-trap 'rm -f "$tmp"' EXIT
 
-# Strip the path prefix so /alpha-engine/robodashboard/SNAPTRADE_CLIENT_ID
-# becomes SNAPTRADE_CLIENT_ID=<value>.
-aws ssm get-parameters-by-path \
+# JSON output keeps multi-line values (the config-yaml blob) intact.
+SSM_JSON="$(aws ssm get-parameters-by-path \
   --path "$SSM_PREFIX" \
   --with-decryption \
   --recursive \
   --region "$REGION" \
   --query 'Parameters[].[Name,Value]' \
-  --output text | while IFS=$'\t' read -r name value; do
-    printf '%s=%s\n' "${name##*/}" "$value" >> "$tmp"
-done
+  --output json)"
 
-if [[ ! -s "$tmp" ]]; then
-  echo "load_secrets: no parameters found under $SSM_PREFIX" >&2
-  exit 1
-fi
+SSM_JSON="$SSM_JSON" ENV_FILE="$ENV_FILE" CONFIG_FILE="$CONFIG_FILE" python3 - <<'PYEOF'
+import json, os
 
-mv "$tmp" "$ENV_FILE"
-chmod 600 "$ENV_FILE"
-echo "load_secrets: wrote $(wc -l < "$ENV_FILE") secrets to $ENV_FILE"
+data = json.loads(os.environ["SSM_JSON"])
+env_lines, config_yaml = [], None
+for name, value in data:
+    key = name.rsplit("/", 1)[-1]
+    if key == "config-yaml":
+        config_yaml = value
+    else:
+        env_lines.append(f"{key}={value}")
+
+if not env_lines:
+    raise SystemExit("load_secrets: no secret parameters found under SSM prefix")
+
+env_file = os.environ["ENV_FILE"]
+with open(env_file, "w") as f:
+    f.write("\n".join(env_lines) + "\n")
+os.chmod(env_file, 0o600)
+
+if config_yaml:
+    with open(os.environ["CONFIG_FILE"], "w") as f:
+        f.write(config_yaml)
+    print(f"load_secrets: wrote {len(env_lines)} secrets + config.yaml")
+else:
+    print(f"load_secrets: wrote {len(env_lines)} secrets (no config-yaml param)")
+PYEOF

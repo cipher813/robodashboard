@@ -23,6 +23,24 @@ def test_portfolio_totals():
     assert t["n_sectors"] == 2
 
 
+def test_account_label_by_number():
+    acct = {"number": "U12345678", "name": "Interactive Brokers (Long Name)"}
+    labels = {"U12345678": "Roth IRA"}
+    assert summary.account_label(acct, labels) == "Roth IRA"
+
+
+def test_account_label_by_name_fallback():
+    acct = {"number": "U999", "name": "Interactive Brokers (X)"}
+    labels = {"Interactive Brokers (X)": "Taxable"}
+    assert summary.account_label(acct, labels) == "Taxable"
+
+
+def test_account_label_falls_back_to_raw_name():
+    acct = {"number": "U000", "name": "Interactive Brokers (Y)"}
+    assert summary.account_label(acct, {}) == "Interactive Brokers (Y)"
+    assert summary.account_label(acct, None) == "Interactive Brokers (Y)"
+
+
 def test_portfolio_totals_zero_cost_safe():
     df = pd.DataFrame(
         {
