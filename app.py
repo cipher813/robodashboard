@@ -54,7 +54,7 @@ except Exception as e:  # snapshotting is best-effort; never block the dashboard
 # ── Summary ──────────────────────────────────────────────────────────────────
 
 summary.render_summary_cards(df)
-summary.render_account_breakdown(reader)
+summary.render_account_breakdown(reader, config.get("accounts"))
 
 # ── Holdings table ───────────────────────────────────────────────────────────
 
