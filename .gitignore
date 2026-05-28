@@ -37,3 +37,6 @@ htmlcov/
 # Design docs
 *-design-*.md
 *-design.md
+
+# Private local docs (roadmap, notes) — never committed to the public repo
+private/
