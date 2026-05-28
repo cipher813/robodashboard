@@ -15,6 +15,14 @@ benchmarks:
   - SPY
   - QQQ
 
+# Alpha Engine page — overlays the paper-trading system's research signals and
+# predictor predictions onto your real holdings. Reads from S3 using the default
+# AWS profile (no new credentials needed). The page degrades gracefully if AWS
+# / boto3 are unavailable, so the rest of the dashboard stays portable.
+alpha_engine:
+  enabled: true
+  bucket: alpha-engine-research
+
 # Phase 4 — AI advisor
 # investor_profile:
 #   strategy: "growth with income"
