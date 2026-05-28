@@ -20,7 +20,7 @@ from data.metrics import (
     pct_from_52w_high,
 )
 from data.price_cache import PriceCache
-from snaptrade_reader import SnapTradeReader
+from snaptrade_reader import SnapTradeReader, aggregate_holdings
 
 logger = logging.getLogger(__name__)
 
@@ -41,32 +41,45 @@ def _normalize_ticker(ticker: str) -> str:
     return ticker
 
 
-def load_portfolio(reader: SnapTradeReader | None, cache: PriceCache) -> tuple[pd.DataFrame, str]:
+def load_portfolio(
+    reader: SnapTradeReader | None,
+    cache: PriceCache,
+    account_numbers: list[str] | None = None,
+) -> tuple[pd.DataFrame, str]:
     """Load and enrich portfolio data.
 
     Args:
         reader: SnapTradeReader instance, or None for offline mode.
         cache: PriceCache for historical prices and fundamentals.
+        account_numbers: Restrict to these accounts before aggregating
+            (per-account / multi-account view). None = all accounts (consolidated).
 
     Returns:
         (enriched_df, source) where source is "live" or "cached ({timestamp})".
     """
-    # Get positions
+    # Get positions, aggregated by ticker over the selected accounts.
     if reader:
         try:
-            holdings = reader.get_aggregated_holdings()
+            holdings = reader.get_aggregated_holdings(account_numbers)
             source = "live"
         except Exception as e:
             logger.warning("SnapTrade fetch failed: %s — falling back to cache", e)
-            holdings, ts = SnapTradeReader.load_cached_holdings()
+            cached, ts = SnapTradeReader.load_cached_holdings()
+            holdings = aggregate_holdings(cached, account_numbers)
             source = f"cached ({ts})" if ts else "cached"
     else:
-        holdings, ts = SnapTradeReader.load_cached_holdings()
+        cached, ts = SnapTradeReader.load_cached_holdings()
+        holdings = aggregate_holdings(cached, account_numbers)
         source = f"cached ({ts})" if ts else "no data"
 
     if holdings.empty:
         return holdings, source
 
+    return _enrich(holdings, cache), source
+
+
+def _enrich(holdings: pd.DataFrame, cache: PriceCache) -> pd.DataFrame:
+    """Enrich per-ticker aggregated holdings with prices, metrics, USD values."""
     # Get SPY history for beta computation
     spy_hist = cache.get_spy_history()
     spy_close = spy_hist["Close"] if not spy_hist.empty else pd.Series(dtype=float)
@@ -146,4 +159,33 @@ def load_portfolio(reader: SnapTradeReader | None, cache: PriceCache) -> tuple[p
     total_value = df["market_value"].sum()
     df["weight_pct"] = df["market_value"] / total_value if total_value > 0 else 0
 
-    return df, source
+    return df
+
+
+def account_breakdown(reader: SnapTradeReader | None, cache: PriceCache, labels: dict | None = None) -> list[dict]:
+    """Per-account balances: cash + positions market value (USD) + total.
+
+    Pulls holdings once and aggregates/enriches per account, so it doesn't
+    re-hit the API per account. Returns [] when there's no reader.
+    """
+    if reader is None:
+        return []
+    labels = labels or {}
+    try:
+        all_holdings = reader.get_all_holdings()
+        balances = reader.get_balances()
+        accounts = reader.get_accounts()
+    except Exception as e:  # best-effort; the breakdown is secondary
+        logger.warning("account_breakdown fetch failed: %s", e)
+        return []
+
+    rows = []
+    for acct in accounts:
+        number = acct.get("number", "")
+        name = acct["name"]
+        label = labels.get(number) or labels.get(name) or name
+        cash = float(balances.get(name, 0.0))
+        per_acct = aggregate_holdings(all_holdings, [number])
+        positions = float(_enrich(per_acct, cache)["market_value"].sum()) if not per_acct.empty else 0.0
+        rows.append({"label": label, "number": number, "cash": cash, "positions": positions, "total": positions + cash})
+    return rows

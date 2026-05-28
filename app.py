@@ -13,7 +13,13 @@ import logging
 
 import streamlit as st
 
-from bootstrap import get_clients, get_portfolio, render_client_messages
+from bootstrap import (
+    get_account_breakdown,
+    get_account_options,
+    get_clients,
+    get_portfolio,
+    render_client_messages,
+)
 from data.snapshots import write_snapshot
 from ui import charts, columns, summary
 
@@ -30,10 +36,22 @@ config, cache, reader, messages = get_clients()
 display_config = config.get("display", {})
 render_client_messages(messages)
 
-# ── Load portfolio ───────────────────────────────────────────────────────────
+# ── Account selector (consolidated by default; filter to one/several) ─────────
+
+account_options = get_account_options()  # [(number, label)]
+selected_numbers = None
+if len(account_options) > 1:
+    label_to_num = {label: num for num, label in account_options}
+    all_labels = [label for _, label in account_options]
+    chosen = st.multiselect("Accounts", all_labels, default=all_labels, key="account_filter")
+    # A strict subset filters; all (or none) selected = consolidated.
+    if chosen and len(chosen) < len(all_labels):
+        selected_numbers = tuple(label_to_num[label] for label in chosen)
+
+# ── Load portfolio (for the current selection) ───────────────────────────────
 
 with st.spinner("Loading portfolio data..."):
-    df, source = get_portfolio()
+    df, source = get_portfolio(selected_numbers)
 
 if df.empty:
     st.error("No portfolio data available. Link a brokerage account or check cached data.")
@@ -42,19 +60,20 @@ if df.empty:
 if "cached" in source:
     st.warning(f"Showing cached data — {source}")
 
-# ── Record daily snapshot (idempotent per day) ───────────────────────────────
+# ── Record daily snapshot — always all-accounts, independent of the view ──────
 
 try:
+    all_df, _ = get_portfolio(None)
     spy_hist = cache.get_spy_history()
     spy_close = float(spy_hist["Close"].iloc[-1]) if not spy_hist.empty else None
-    write_snapshot(df, spy_close=spy_close, source=source)
+    write_snapshot(all_df, spy_close=spy_close, source=source)
 except Exception as e:  # snapshotting is best-effort; never block the dashboard
     logging.getLogger(__name__).warning("Snapshot write failed: %s", e)
 
 # ── Summary ──────────────────────────────────────────────────────────────────
 
 summary.render_summary_cards(df)
-summary.render_account_breakdown(reader, config.get("accounts"))
+summary.render_account_breakdown(get_account_breakdown())
 
 # ── Holdings table ───────────────────────────────────────────────────────────
 
