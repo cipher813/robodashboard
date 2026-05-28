@@ -12,13 +12,11 @@ from __future__ import annotations
 import logging
 
 import streamlit as st
-from dotenv import load_dotenv
 
-from app_config import init_clients, load_config
-from loaders.portfolio_loader import load_portfolio
+from bootstrap import get_clients, get_portfolio, render_client_messages
+from data.snapshots import write_snapshot
 from ui import charts, columns, summary
 
-load_dotenv()
 logging.basicConfig(level=logging.INFO)
 
 # ── Page config ──────────────────────────────────────────────────────────────
@@ -28,23 +26,14 @@ st.title("RoboDashboard")
 
 # ── Config + clients ─────────────────────────────────────────────────────────
 
-config = load_config()
+config, cache, reader, messages = get_clients()
 display_config = config.get("display", {})
-
-cache, reader, messages = init_clients(config)
-for level, text in messages:
-    getattr(st, level)(text)
+render_client_messages(messages)
 
 # ── Load portfolio ───────────────────────────────────────────────────────────
 
-
-@st.cache_data(ttl=300)
-def _load_portfolio():
-    return load_portfolio(reader, cache)
-
-
 with st.spinner("Loading portfolio data..."):
-    df, source = _load_portfolio()
+    df, source = get_portfolio()
 
 if df.empty:
     st.error("No portfolio data available. Link a brokerage account or check cached data.")
@@ -52,6 +41,15 @@ if df.empty:
 
 if "cached" in source:
     st.warning(f"Showing cached data — {source}")
+
+# ── Record daily snapshot (idempotent per day) ───────────────────────────────
+
+try:
+    spy_hist = cache.get_spy_history()
+    spy_close = float(spy_hist["Close"].iloc[-1]) if not spy_hist.empty else None
+    write_snapshot(df, spy_close=spy_close, source=source)
+except Exception as e:  # snapshotting is best-effort; never block the dashboard
+    logging.getLogger(__name__).warning("Snapshot write failed: %s", e)
 
 # ── Summary ──────────────────────────────────────────────────────────────────
 
