@@ -53,13 +53,17 @@ class SnapTradeReader:
         )
         accounts = []
         for acct in response.body:
-            accounts.append({
-                "id": str(acct.get("id", "")),
-                "name": acct.get("name", ""),
-                "number": acct.get("number", ""),
-                "type": acct.get("institution_type", acct.get("type", "")),
-                "institution": acct.get("brokerage_authorization", {}).get("brokerage", {}).get("name", "") if isinstance(acct.get("brokerage_authorization"), dict) else "",
-            })
+            accounts.append(
+                {
+                    "id": str(acct.get("id", "")),
+                    "name": acct.get("name", ""),
+                    "number": acct.get("number", ""),
+                    "type": acct.get("institution_type", acct.get("type", "")),
+                    "institution": acct.get("brokerage_authorization", {}).get("brokerage", {}).get("name", "")
+                    if isinstance(acct.get("brokerage_authorization"), dict)
+                    else "",
+                }
+            )
         logger.info("Found %d linked accounts", len(accounts))
         return accounts
 
@@ -77,14 +81,17 @@ class SnapTradeReader:
             ticker = symbol_obj.get("symbol", "") if isinstance(symbol_obj, dict) else str(symbol_obj)
             if not ticker:
                 continue
-            holdings.append({
-                "account_id": account_id,
-                "ticker": ticker,
-                "shares": float(pos.get("units", 0)),
-                "avg_cost": float(pos.get("average_purchase_price") or 0),
-                "current_price": float(pos.get("price") or 0),
-                "market_value": float(pos.get("open_pnl", 0)) + float(pos.get("units", 0)) * float(pos.get("average_purchase_price") or 0),
-            })
+            holdings.append(
+                {
+                    "account_id": account_id,
+                    "ticker": ticker,
+                    "shares": float(pos.get("units", 0)),
+                    "avg_cost": float(pos.get("average_purchase_price") or 0),
+                    "current_price": float(pos.get("price") or 0),
+                    "market_value": float(pos.get("open_pnl", 0))
+                    + float(pos.get("units", 0)) * float(pos.get("average_purchase_price") or 0),
+                }
+            )
         return holdings
 
     def get_all_holdings(self) -> pd.DataFrame:
@@ -113,12 +120,16 @@ class SnapTradeReader:
         df = self.get_all_holdings()
         if df.empty:
             return df
-        agg = df.groupby("ticker").agg(
-            shares=("shares", "sum"),
-            total_cost=("avg_cost", lambda x: (x * df.loc[x.index, "shares"]).sum()),
-            market_value=("market_value", "sum"),
-            n_accounts=("account_id", "nunique"),
-        ).reset_index()
+        agg = (
+            df.groupby("ticker")
+            .agg(
+                shares=("shares", "sum"),
+                total_cost=("avg_cost", lambda x: (x * df.loc[x.index, "shares"]).sum()),
+                market_value=("market_value", "sum"),
+                n_accounts=("account_id", "nunique"),
+            )
+            .reset_index()
+        )
         agg["avg_cost"] = agg["total_cost"] / agg["shares"]
         agg["avg_cost"] = agg["avg_cost"].round(4)
         agg.drop(columns=["total_cost"], inplace=True)

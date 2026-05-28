@@ -4,7 +4,6 @@ from unittest.mock import MagicMock, patch
 
 import numpy as np
 import pandas as pd
-import pytest
 
 from loaders.portfolio_loader import load_portfolio
 
@@ -39,9 +38,11 @@ def _mock_reader(holdings_df: pd.DataFrame):
 
 class TestLoadPortfolio:
     def test_basic_enrichment(self):
-        holdings = pd.DataFrame([
-            {"ticker": "AAPL", "shares": 100, "avg_cost": 110, "market_value": 13000, "n_accounts": 2},
-        ])
+        holdings = pd.DataFrame(
+            [
+                {"ticker": "AAPL", "shares": 100, "avg_cost": 110, "market_value": 13000, "n_accounts": 2},
+            ]
+        )
         reader = _mock_reader(holdings)
         cache = _mock_cache()
 
@@ -59,10 +60,12 @@ class TestLoadPortfolio:
         assert "weight_pct" in df.columns
 
     def test_weight_sums_to_one(self):
-        holdings = pd.DataFrame([
-            {"ticker": "AAPL", "shares": 100, "avg_cost": 110, "market_value": 13000, "n_accounts": 1},
-            {"ticker": "MSFT", "shares": 50, "avg_cost": 300, "market_value": 17500, "n_accounts": 1},
-        ])
+        holdings = pd.DataFrame(
+            [
+                {"ticker": "AAPL", "shares": 100, "avg_cost": 110, "market_value": 13000, "n_accounts": 1},
+                {"ticker": "MSFT", "shares": 50, "avg_cost": 300, "market_value": 17500, "n_accounts": 1},
+            ]
+        )
         reader = _mock_reader(holdings)
         cache = _mock_cache()
 
@@ -87,9 +90,11 @@ class TestLoadPortfolio:
         cache = _mock_cache()
 
         with patch("loaders.portfolio_loader.SnapTradeReader") as mock_cls:
-            cached_df = pd.DataFrame([
-                {"ticker": "AAPL", "shares": 100, "avg_cost": 110, "market_value": 13000, "n_accounts": 1},
-            ])
+            cached_df = pd.DataFrame(
+                [
+                    {"ticker": "AAPL", "shares": 100, "avg_cost": 110, "market_value": 13000, "n_accounts": 1},
+                ]
+            )
             mock_cls.load_cached_holdings.return_value = (cached_df, "2026-04-06T12:00:00")
             df, source = load_portfolio(reader, cache)
 

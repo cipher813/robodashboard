@@ -1,0 +1,57 @@
+# RoboDashboard is a Streamlit application, not a published package — this file
+# carries tooling config (ruff / pytest / coverage) and project metadata only.
+
+[project]
+name = "robodashboard"
+version = "0.1.0"
+description = "Personal portfolio analytics dashboard — SnapTrade + yfinance + Streamlit"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+
+[tool.ruff]
+line-length = 120
+target-version = "py311"
+
+[tool.ruff.lint]
+# pycodestyle (E/W), pyflakes (F), isort (I), pyupgrade (UP), bugbear (B),
+# comprehensions (C4) — a sensible institutional default.
+select = ["E", "W", "F", "I", "UP", "B", "C4"]
+ignore = [
+    "E501",   # line length is enforced by the formatter, not the linter
+    "C408",   # dict(...) calls — Plotly layout/marker kwargs read better as dict()
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Streamlit requires st.set_page_config(...) before any other st call, so page
+# modules legitimately place imports after that call.
+"app.py" = ["E402"]
+"pages/*.py" = ["E402"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+
+[tool.coverage.run]
+# Pure, deterministic logic only. Excluded by omission from `source`:
+#   app.py, pages/*       — Streamlit entrypoints, verified via streamlit AppTest
+#   snaptrade_reader.py   — thin SnapTrade API client, exercised live not in units
+#   bootstrap.py          — st.cache_* glue, exercised via AppTest
+# Excluded by `omit`:
+#   data/price_cache.py   — yfinance network I/O
+source = ["data", "loaders", "ui", "app_config"]
+omit = [
+    "data/price_cache.py",
+    "*/__init__.py",
+]
+
+[tool.coverage.report]
+fail_under = 90
+show_missing = true
+skip_empty = true
+exclude_lines = [
+    "pragma: no cover",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:",
+]
