@@ -1,0 +1,11 @@
+[Unit]
+Description=Run RoboDashboard portfolio snapshot daily after US market close
+
+[Timer]
+# 21:30 UTC ≈ 1:30 PM PT / 4:30 PM ET — after the US close so the day's
+# closing marks have settled. Persistent catches up a missed run after downtime.
+OnCalendar=*-*-* 21:30:00 UTC
+Persistent=true
+
+[Install]
+WantedBy=timers.target
