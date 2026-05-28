@@ -1,8 +1,8 @@
 # Deploying RoboDashboard to portfolio.nousergon.ai
 
 RoboDashboard runs as a third Streamlit systemd service on the shared dashboard
-EC2 (`i-09b539c844515d549`, role `alpha-engine-executor-role`), behind nginx and
-**Cloudflare Access** — the same pattern as `console.nousergon.ai`. It shows real,
+EC2 (`i-09b539c844515d549`, role `alpha-engine-executor-role`, Python 3.11 at
+`/usr/bin/python3.11`), behind nginx and **Cloudflare Access** — the same pattern as `console.nousergon.ai`. It shows real,
 read-only brokerage data, so it is **never** exposed publicly; Cloudflare Access
 gates it at the edge to the operator's identity only.
 
@@ -39,7 +39,7 @@ aws ssm send-command --instance-ids i-09b539c844515d549 \
     "cd /home/ec2-user",
     "test -d robodashboard || sudo -u ec2-user git clone https://github.com/cipher813/robodashboard.git",
     "cd robodashboard && sudo -u ec2-user git pull",
-    "sudo -u ec2-user python3 -m venv .venv",
+    "sudo -u ec2-user python3.11 -m venv .venv",
     "sudo -u ec2-user .venv/bin/pip install -q -r requirements.txt",
     "chmod +x infrastructure/load_secrets.sh",
     "sudo cp infrastructure/robodashboard.service /etc/systemd/system/",
