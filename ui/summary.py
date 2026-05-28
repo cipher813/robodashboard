@@ -10,7 +10,12 @@ def portfolio_totals(df: pd.DataFrame) -> dict:
     """Compute headline portfolio totals from the enriched DataFrame."""
     total_nav = df["market_value"].sum()
     total_pnl = df["unrealized_pnl"].sum()
-    total_cost = (df["avg_cost"] * df["shares"]).sum()
+    # Cost basis in USD. market_value and unrealized_pnl are both already
+    # USD-converted, so cost = NAV − P&L. Do NOT sum avg_cost×shares — avg_cost
+    # is in each holding's NATIVE currency, so summing across currencies (e.g.
+    # adding an HKD cost as if USD) overstates cost and flips return % negative
+    # on a real gain.
+    total_cost = total_nav - total_pnl
     total_return_pct = (total_nav / total_cost - 1) if total_cost > 0 else 0
     return {
         "nav": total_nav,
