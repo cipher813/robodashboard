@@ -5,7 +5,7 @@ from unittest.mock import MagicMock, patch
 import numpy as np
 import pandas as pd
 
-from loaders.portfolio_loader import load_portfolio
+from loaders.portfolio_loader import account_breakdown, load_portfolio
 
 
 def _mock_cache():
@@ -109,6 +109,25 @@ class TestLoadPortfolio:
         assert df.iloc[0]["currency"] == "USD"
         assert df.iloc[0]["market_value"] == df.iloc[0]["market_value_local"]  # fx 1.0
 
+    def test_load_portfolio_passes_account_filter(self):
+        holdings = pd.DataFrame(
+            [
+                {
+                    "ticker": "AAPL",
+                    "currency": "USD",
+                    "shares": 10,
+                    "avg_cost": 100,
+                    "market_value": 1000,
+                    "n_accounts": 1,
+                }
+            ]
+        )
+        reader = _mock_reader(holdings)
+        df, source = load_portfolio(reader, _mock_cache(), ["U1"])
+        reader.get_aggregated_holdings.assert_called_once_with(["U1"])
+        assert source == "live"
+        assert len(df) == 1
+
     def test_offline_fallback(self):
         cache = _mock_cache()
 
@@ -135,3 +154,46 @@ class TestLoadPortfolio:
 
         assert "cached" in source
         assert len(df) == 1
+
+
+def test_account_breakdown_cash_positions_total():
+    reader = MagicMock()
+    reader.get_all_holdings.return_value = pd.DataFrame(
+        [
+            {
+                "account_id": "a1",
+                "account_number": "U1",
+                "ticker": "AAPL",
+                "currency": "USD",
+                "shares": 10,
+                "avg_cost": 100,
+                "market_value": 1000,
+            },
+            {
+                "account_id": "a2",
+                "account_number": "U2",
+                "ticker": "MSFT",
+                "currency": "USD",
+                "shares": 5,
+                "avg_cost": 300,
+                "market_value": 1500,
+            },
+        ]
+    )
+    reader.get_balances.return_value = {"IRA": 500.0, "Roth": 0.0, "total": 500.0}
+    reader.get_accounts.return_value = [
+        {"number": "U1", "name": "IRA", "type": "", "institution": ""},
+        {"number": "U2", "name": "Roth", "type": "", "institution": ""},
+    ]
+    rows = account_breakdown(reader, _mock_cache(), {"U1": "Trad IRA"})
+    by = {r["number"]: r for r in rows}
+    assert by["U1"]["label"] == "Trad IRA"  # labeled by number
+    assert by["U2"]["label"] == "Roth"  # raw-name fallback
+    assert by["U1"]["cash"] == 500.0
+    # positions = shares * current_price (mock last close 130) * fx 1.0
+    assert by["U1"]["positions"] == 10 * 130.0
+    assert by["U1"]["total"] == 10 * 130.0 + 500.0
+
+
+def test_account_breakdown_no_reader():
+    assert account_breakdown(None, _mock_cache()) == []

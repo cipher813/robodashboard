@@ -27,6 +27,46 @@ logger = logging.getLogger(__name__)
 POSITIONS_CACHE_PATH = Path("cache/positions_latest.json")
 
 
+def aggregate_holdings(df: pd.DataFrame, account_numbers: list[str] | None = None) -> pd.DataFrame:
+    """Aggregate per-(account, ticker) holdings to per-ticker rows.
+
+    Args:
+        df: Per-account holdings (cols: ticker, currency, shares, avg_cost,
+            market_value, account_id, account_number).
+        account_numbers: If given, only these accounts are included before
+            aggregating (enables per-account / multi-account views). None = all.
+
+    Returns one row per ticker with summed shares/market_value, share-weighted
+    avg_cost, and n_accounts. Currency is constant per ticker.
+    """
+    if df.empty:
+        return df
+    df = df.copy()
+    # Defensive defaults for older/cached frames missing these columns.
+    if "currency" not in df.columns:
+        df["currency"] = "USD"
+    if "account_id" not in df.columns:
+        df["account_id"] = df["account_number"] if "account_number" in df.columns else df.index
+    if account_numbers is not None and "account_number" in df.columns:
+        df = df[df["account_number"].isin(account_numbers)]
+    if df.empty:
+        return df.iloc[0:0]
+    agg = (
+        df.groupby("ticker")
+        .agg(
+            currency=("currency", "first"),
+            shares=("shares", "sum"),
+            total_cost=("avg_cost", lambda x: (x * df.loc[x.index, "shares"]).sum()),
+            market_value=("market_value", "sum"),
+            n_accounts=("account_id", "nunique"),
+        )
+        .reset_index()
+    )
+    agg["avg_cost"] = (agg["total_cost"] / agg["shares"]).round(4)
+    agg.drop(columns=["total_cost"], inplace=True)
+    return agg
+
+
 class SnapTradeReader:
     """Read-only SnapTrade client. NO TRADING METHODS."""
 
@@ -108,6 +148,7 @@ class SnapTradeReader:
                 holdings = self.get_holdings(acct["id"])
                 for h in holdings:
                     h["account_name"] = acct["name"]
+                    h["account_number"] = acct.get("number", "")
                     h["account_type"] = acct["type"]
                 all_holdings.extend(holdings)
             except Exception as e:
@@ -117,29 +158,13 @@ class SnapTradeReader:
             self._save_cache(df)
         return df
 
-    def get_aggregated_holdings(self) -> pd.DataFrame:
-        """Get holdings aggregated by ticker across all accounts.
+    def get_aggregated_holdings(self, account_numbers: list[str] | None = None) -> pd.DataFrame:
+        """Get holdings aggregated by ticker, optionally for a subset of accounts.
 
-        Computes weighted average cost basis across sub-accounts.
+        Computes weighted average cost basis across the selected sub-accounts.
+        ``account_numbers=None`` aggregates all accounts (consolidated view).
         """
-        df = self.get_all_holdings()
-        if df.empty:
-            return df
-        agg = (
-            df.groupby("ticker")
-            .agg(
-                currency=("currency", "first"),  # constant per ticker
-                shares=("shares", "sum"),
-                total_cost=("avg_cost", lambda x: (x * df.loc[x.index, "shares"]).sum()),
-                market_value=("market_value", "sum"),
-                n_accounts=("account_id", "nunique"),
-            )
-            .reset_index()
-        )
-        agg["avg_cost"] = agg["total_cost"] / agg["shares"]
-        agg["avg_cost"] = agg["avg_cost"].round(4)
-        agg.drop(columns=["total_cost"], inplace=True)
-        return agg
+        return aggregate_holdings(self.get_all_holdings(), account_numbers)
 
     def get_balances(self) -> dict:
         """Get cash balances per account and aggregate."""
