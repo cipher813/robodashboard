@@ -7,8 +7,8 @@ read-only brokerage data, so it is **never** exposed publicly; Cloudflare Access
 gates it at the edge to the operator's identity only.
 
 Architecture:
-- Streamlit on `127.0.0.1:8503` (loopback only; nginx is the sole ingress)
-- nginx `portfolio.nousergon.ai` → `:8503` (config in the **alpha-engine-dashboard** repo)
+- Streamlit on `127.0.0.1:8504` (loopback only; nginx is the sole ingress)
+- nginx `portfolio.nousergon.ai` → `:8504` (config in the **alpha-engine-dashboard** repo)
 - Cloudflare Access policy on `portfolio.nousergon.ai`
 - SnapTrade **read-only** creds from SSM (`/alpha-engine/robodashboard/*`); S3 reads via the instance role (no AWS keys on the box)
 
@@ -51,7 +51,7 @@ aws ssm send-command --instance-ids i-09b539c844515d549 \
   ]' --query 'Command.CommandId' --output text
 ```
 
-Verify: `sudo systemctl status robodashboard` and `curl -sI localhost:8503` on the box.
+Verify: `sudo systemctl status robodashboard` and `curl -sI localhost:8504` on the box.
 
 Subsequent deploys: `git pull` + `systemctl restart robodashboard` (add to the
 dashboard's boot-pull if you want auto-pull on reboot).
