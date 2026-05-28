@@ -49,6 +49,7 @@ ALL_COLUMNS: dict[str, dict] = {
             "Mkt Value (USD)", format="$%,.0f", help="Market value converted to USD"
         ),
         "group": "core",
+        "pinned": True,  # always shown, no checkbox
     },
     # Position
     "sector": {"label": "Sector", "config": st.column_config.TextColumn("Sector", width="medium"), "group": "position"},
@@ -189,14 +190,12 @@ COLUMN_GROUPS: dict[str, list[str]] = {
     "Income": [k for k, v in ALL_COLUMNS.items() if v["group"] == "income"],
 }
 
-# Columns checked on by default in the selector.
+# Columns checked on by default in the selector. (Ccy + Local Value are
+# toggleable and OFF by default; Mkt Value (USD) is pinned, not in here.)
 DEFAULT_ON: set[str] = {
     "name",
     "shares",
     "current_price",
-    "currency",
-    "market_value_local",
-    "market_value",
     "sector",
     "weight_pct",
     "unrealized_pnl",
@@ -209,11 +208,13 @@ DEFAULT_ON: set[str] = {
 
 
 def render_column_selector(display_df: pd.DataFrame) -> list[str]:  # pragma: no cover
-    """Render the grouped checkbox selector and return chosen column keys.
+    """Render the grouped checkbox selector and return the visible columns.
 
-    Always-on columns (ticker) are prepended to the returned list.
+    ``always`` (ticker) and ``pinned`` (Mkt Value (USD)) columns are always
+    shown and get no checkbox. The returned list is in registry declaration
+    order so pinned/always columns keep their natural position.
     """
-    selected_optional: list[str] = []
+    selected_optional: set[str] = set()
     with st.expander("Customize columns"):
         group_names = list(COLUMN_GROUPS.keys())
         cols = st.columns(len(group_names))
@@ -221,15 +222,15 @@ def render_column_selector(display_df: pd.DataFrame) -> list[str]:  # pragma: no
             with cols[i]:
                 st.markdown(f"**{group_name}**")
                 for col_key in COLUMN_GROUPS[group_name]:
-                    if col_key not in display_df.columns:
-                        continue
                     col_def = ALL_COLUMNS[col_key]
+                    if col_def.get("pinned") or col_key not in display_df.columns:
+                        continue
                     checked = st.checkbox(col_def["label"], value=col_key in DEFAULT_ON, key=f"col_{col_key}")
                     if checked:
-                        selected_optional.append(col_key)
+                        selected_optional.add(col_key)
 
-    always_cols = [k for k, v in ALL_COLUMNS.items() if v.get("always")]
-    return always_cols + selected_optional
+    visible = selected_optional | {k for k, v in ALL_COLUMNS.items() if v.get("always") or v.get("pinned")}
+    return [k for k in ALL_COLUMNS if k in visible]
 
 
 def apply_display_formatting(
