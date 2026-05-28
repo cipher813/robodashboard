@@ -111,13 +111,17 @@ with chart_col1:
         st.plotly_chart(sector_fig, width="stretch")
 
 with chart_col2:
-    perf_window = st.selectbox(
-        "Performers window",
-        list(charts.PERFORMERS_COL_MAP.keys()),
-        index=0,
-        key="perf_window",
-    )
-    perf_fig = charts.performers_figure(df, charts.PERFORMERS_COL_MAP[perf_window])
+    pw_col, unit_col = st.columns([2, 1])
+    with pw_col:
+        perf_window = st.selectbox(
+            "Performers window",
+            list(charts.PERFORMERS_COL_MAP.keys()),
+            index=0,
+            key="perf_window",
+        )
+    with unit_col:
+        perf_unit = st.radio("Show", ["%", "$"], horizontal=True, key="perf_unit")
+    perf_fig = charts.performers_figure(df, charts.PERFORMERS_COL_MAP[perf_window], dollars=(perf_unit == "$"))
     if perf_fig is not None:
         st.plotly_chart(perf_fig, width="stretch")
 
@@ -133,7 +137,12 @@ with perf_col1:
     selected_tickers = st.multiselect("Stocks", tickers, default=tickers, key="chart_tickers")
     normalize = st.checkbox("Normalize to 100", value=True, key="chart_normalize")
     show_spy = st.checkbox("Show SPY", value=True, key="chart_spy")
-    show_portfolio = st.checkbox("Show Portfolio", value=True, key="chart_portfolio")
+    show_portfolio = st.checkbox(
+        "Aggregate as one line",
+        value=True,
+        key="chart_portfolio",
+        help="On: a single market-value-weighted portfolio line. Off: each selected stock plotted individually.",
+    )
 
 with perf_col2:
     perf_fig = charts.portfolio_performance_figure(

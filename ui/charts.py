@@ -49,20 +49,26 @@ def sector_allocation_figure(df: pd.DataFrame) -> go.Figure | None:
     return fig
 
 
-def performers_figure(df: pd.DataFrame, perf_col: str, n: int = 5) -> go.Figure | None:
-    """Horizontal bar chart of the top/bottom ``n`` performers on ``perf_col``."""
-    if perf_col not in df.columns:
+def performers_figure(df: pd.DataFrame, perf_col: str, n: int = 5, *, dollars: bool = False) -> go.Figure | None:
+    """Horizontal bar chart of the top/bottom ``n`` performers.
+
+    ``dollars=False`` plots ``perf_col`` as a percentage; ``dollars=True`` plots
+    the position's USD dollar gain (``unrealized_pnl``) instead.
+    """
+    value_col = "unrealized_pnl" if dollars else perf_col
+    if value_col not in df.columns:
         return None
-    perf_df = df[df[perf_col].notna()].copy()
+    perf_df = df[df[value_col].notna()].copy()
     if perf_df.empty:
         return None
-    perf_df["return_display"] = perf_df[perf_col] * 100
+    perf_df["return_display"] = perf_df[value_col] if dollars else perf_df[value_col] * 100
     perf_df.sort_values("return_display", inplace=True)
     n_show = min(n, len(perf_df))
     show_df = pd.concat([perf_df.head(n_show), perf_df.tail(n_show)]).drop_duplicates()
     show_df.sort_values("return_display", inplace=True)
     if show_df.empty:
         return None
+    axis_label = "Return $" if dollars else "Return %"
     fig = px.bar(
         show_df,
         x="return_display",
@@ -70,7 +76,7 @@ def performers_figure(df: pd.DataFrame, perf_col: str, n: int = 5) -> go.Figure 
         orientation="h",
         color="return_display",
         color_continuous_scale=["#ef4444", "#22c55e"],
-        labels={"return_display": "Return %", "ticker": ""},
+        labels={"return_display": axis_label, "ticker": ""},
     )
     fig.update_layout(
         showlegend=False,
@@ -78,6 +84,8 @@ def performers_figure(df: pd.DataFrame, perf_col: str, n: int = 5) -> go.Figure 
         margin=dict(t=0, b=0, l=0, r=0),
         height=400,
     )
+    if dollars:
+        fig.update_xaxes(tickprefix="$")
     return fig
 
 
@@ -150,12 +158,8 @@ def portfolio_performance_figure(
             continue
         ticker_series[ticker] = _normalize_close_index(close)
 
-    for ticker, close in ticker_series.items():
-        plot_vals = (close / close.iloc[0]) * 100 if normalize else close
-        fig.add_trace(go.Scatter(x=plot_vals.index, y=plot_vals.values, mode="lines", name=ticker))
-
-    # Portfolio aggregate (market-value-weighted).
-    if show_portfolio and len(ticker_series) > 1:
+    if show_portfolio:
+        # Single market-value-weighted aggregate line only (no individual lines).
         shares_map = dict(zip(df["ticker"], df["shares"], strict=True))
         portfolio_components = {
             ticker: close * shares_map.get(ticker, 0)
@@ -176,6 +180,16 @@ def portfolio_performance_figure(
                         line=dict(color="white", width=3),
                     )
                 )
+    else:
+        # Individual stock lines, added best→worst by end value so the unified
+        # hover lists them highest-return first.
+        def _end_value(close: pd.Series) -> float:
+            vals = (close / close.iloc[0]) * 100 if normalize else close
+            return float(vals.iloc[-1])
+
+        for ticker, close in sorted(ticker_series.items(), key=lambda kv: _end_value(kv[1]), reverse=True):
+            plot_vals = (close / close.iloc[0]) * 100 if normalize else close
+            fig.add_trace(go.Scatter(x=plot_vals.index, y=plot_vals.values, mode="lines", name=ticker))
 
     # SPY overlay.
     if show_spy:
