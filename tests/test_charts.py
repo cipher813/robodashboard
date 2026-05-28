@@ -17,6 +17,7 @@ def _portfolio_df():
             "market_value": [2000.0, 1500.0, 1800.0],
             "sector": ["Technology", "Technology", "Energy"],
             "return_pct": [0.25, 0.10, -0.05],
+            "unrealized_pnl": [400.0, 130.0, -90.0],
             "1y_return": [0.30, 0.15, 0.02],
             "3y_return": [0.20, 0.12, 0.08],
             "5y_return": [0.18, 0.14, 0.06],
@@ -70,23 +71,55 @@ def test_performers_figure_none_for_missing_column():
     assert charts.performers_figure(_portfolio_df(), "nonexistent_col") is None
 
 
+def test_performers_figure_dollars_mode_uses_unrealized_pnl():
+    fig = charts.performers_figure(_portfolio_df(), "return_pct", dollars=True)
+    assert fig is not None
+    assert fig.layout.xaxis.title.text == "Return $"
+    # x values are the dollar P&L (worst first after ascending sort) — XOM -90.
+    assert fig.data[0].x[0] == pytest.approx(-90.0)
+
+
 def test_portfolio_performance_figure_returns_none_without_tickers():
     assert charts.portfolio_performance_figure(_portfolio_df(), _FakeCache(), "1Y", []) is None
 
 
-def test_portfolio_performance_figure_includes_portfolio_and_spy():
+def test_show_portfolio_plots_only_aggregate_line():
+    fig = charts.portfolio_performance_figure(
+        _portfolio_df(),
+        _FakeCache(),
+        "1Y",
+        ["AAPL", "MSFT", "XOM"],
+        show_spy=False,
+        show_portfolio=True,
+    )
+    assert {t.name for t in fig.data} == {"Portfolio"}  # no individual lines
+
+
+def test_unchecked_portfolio_plots_individual_lines_sorted_desc():
     fig = charts.portfolio_performance_figure(
         _portfolio_df(),
         _FakeCache(),
         "1Y",
         ["AAPL", "MSFT", "XOM"],
         normalize=True,
+        show_spy=False,
+        show_portfolio=False,
+    )
+    order = [t.name for t in fig.data]
+    # End values: AAPL +60% > MSFT +20% > XOM -5% → sorted high→low (F6).
+    assert order == ["AAPL", "MSFT", "XOM"]
+
+
+def test_show_portfolio_with_spy_has_both():
+    fig = charts.portfolio_performance_figure(
+        _portfolio_df(),
+        _FakeCache(),
+        "1Y",
+        ["AAPL", "MSFT", "XOM"],
         show_spy=True,
         show_portfolio=True,
     )
-    assert fig is not None
-    names = {trace.name for trace in fig.data}
-    assert {"AAPL", "MSFT", "XOM", "Portfolio", "SPY"}.issubset(names)
+    assert {t.name for t in fig.data} == {"Portfolio", "SPY"}
 
 
 def test_portfolio_performance_figure_normalize_starts_at_100():

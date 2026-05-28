@@ -16,11 +16,15 @@ def test_ticker_is_the_only_always_on_column():
     assert always == ["ticker"]
 
 
-def test_currency_columns_present_and_default_on():
+def test_market_value_pinned_and_currency_columns_toggleable():
     for k in ("currency", "market_value_local", "market_value"):
         assert k in columns.ALL_COLUMNS
-        assert k in columns.DEFAULT_ON
+    # Mkt Value (USD) is pinned (always shown, no checkbox).
+    assert columns.ALL_COLUMNS["market_value"].get("pinned") is True
     assert "USD" in columns.ALL_COLUMNS["market_value"]["label"]
+    # Ccy + Local Value are toggleable and OFF by default.
+    assert "currency" not in columns.DEFAULT_ON
+    assert "market_value_local" not in columns.DEFAULT_ON
 
 
 def test_apply_display_formatting_scales_pct_columns():
