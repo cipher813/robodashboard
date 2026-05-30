@@ -180,19 +180,62 @@ def test_account_breakdown_cash_positions_total():
             },
         ]
     )
-    reader.get_balances.return_value = {"IRA": 500.0, "Roth": 0.0, "total": 500.0}
+    # IBKR's authoritative per-account total (positions + cash, IBKR FX).
     reader.get_accounts.return_value = [
-        {"number": "U1", "name": "IRA", "type": "", "institution": ""},
-        {"number": "U2", "name": "Roth", "type": "", "institution": ""},
+        {"number": "U1", "name": "IRA", "type": "", "institution": "", "balance_total": 1500.0},
+        {"number": "U2", "name": "Roth", "type": "", "institution": "", "balance_total": 1500.0},
     ]
     rows = account_breakdown(reader, _mock_cache(), {"U1": "Trad IRA"})
     by = {r["number"]: r for r in rows}
     assert by["U1"]["label"] == "Trad IRA"  # labeled by number
     assert by["U2"]["label"] == "Roth"  # raw-name fallback
+    # positions = broker market_value (1000) * fx 1.0; total is authoritative;
+    # cash is derived as total - positions.
+    assert by["U1"]["positions"] == 1000.0
+    assert by["U1"]["total"] == 1500.0
     assert by["U1"]["cash"] == 500.0
-    # positions = shares * current_price (mock last close 130) * fx 1.0
-    assert by["U1"]["positions"] == 10 * 130.0
-    assert by["U1"]["total"] == 10 * 130.0 + 500.0
+    # U2: market_value 1500 → positions 1500, cash plug 0.
+    assert by["U2"]["positions"] == 1500.0
+    assert by["U2"]["cash"] == 0.0
+
+
+def test_account_breakdown_multi_currency_cash_is_fx_aware():
+    """Regression: foreign-currency cash must NOT be summed at face value.
+
+    Mirrors the Roth IRA bug — an account holding a foreign-currency position
+    plus mixed-currency cash. Cash is derived from IBKR's authoritative total
+    minus FX-converted positions, never HKD + SGD + USD added as dollars.
+    """
+    reader = MagicMock()
+    # One HKD position worth 100,000 HKD locally.
+    reader.get_all_holdings.return_value = pd.DataFrame(
+        [
+            {
+                "account_id": "a1",
+                "account_number": "U1",
+                "ticker": "1299.HK",
+                "currency": "HKD",
+                "shares": 1000,
+                "avg_cost": 90,
+                "current_price": 100,
+                "market_value": 100_000,  # 1000 * 100, native HKD
+            }
+        ]
+    )
+    reader.get_accounts.return_value = [
+        {"number": "U1", "name": "Roth", "type": "", "institution": "", "balance_total": 13_000.0},
+    ]
+    cache = MagicMock()
+    cache.get_fx_rate.return_value = 0.128  # HKD → USD
+
+    rows = account_breakdown(reader, cache, None)
+    r = rows[0]
+    # positions = 100,000 HKD * 0.128 = $12,800 (FX-converted, not face value)
+    assert abs(r["positions"] - 12_800.0) < 1e-6
+    # cash = authoritative total 13,000 - 12,800 = $200 (a plausible USD plug),
+    # NOT the face-value sum of foreign cash buckets.
+    assert abs(r["cash"] - 200.0) < 1e-6
+    assert abs(r["total"] - 13_000.0) < 1e-6
 
 
 def test_account_breakdown_no_reader():
