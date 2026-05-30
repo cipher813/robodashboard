@@ -49,11 +49,13 @@ def sector_allocation_figure(df: pd.DataFrame) -> go.Figure | None:
     return fig
 
 
-def performers_figure(df: pd.DataFrame, perf_col: str, n: int = 5, *, dollars: bool = False) -> go.Figure | None:
-    """Horizontal bar chart of the top/bottom ``n`` performers.
+def performers_figure(df: pd.DataFrame, perf_col: str, n: int | None = 5, *, dollars: bool = False) -> go.Figure | None:
+    """Horizontal bar chart of performers.
 
-    ``dollars=False`` plots ``perf_col`` as a percentage; ``dollars=True`` plots
-    the position's USD dollar gain (``unrealized_pnl``) instead.
+    ``n`` is the count taken from EACH end (top ``n`` gainers + bottom ``n``
+    losers). ``n=None`` shows ALL holdings. ``dollars=False`` plots ``perf_col``
+    as a percentage; ``dollars=True`` plots the position's USD dollar gain
+    (``unrealized_pnl``) instead.
     """
     value_col = "unrealized_pnl" if dollars else perf_col
     if value_col not in df.columns:
@@ -63,9 +65,12 @@ def performers_figure(df: pd.DataFrame, perf_col: str, n: int = 5, *, dollars: b
         return None
     perf_df["return_display"] = perf_df[value_col] if dollars else perf_df[value_col] * 100
     perf_df.sort_values("return_display", inplace=True)
-    n_show = min(n, len(perf_df))
-    show_df = pd.concat([perf_df.head(n_show), perf_df.tail(n_show)]).drop_duplicates()
-    show_df.sort_values("return_display", inplace=True)
+    if n is None:
+        show_df = perf_df
+    else:
+        n_show = min(n, len(perf_df))
+        show_df = pd.concat([perf_df.head(n_show), perf_df.tail(n_show)]).drop_duplicates()
+    show_df = show_df.sort_values("return_display")
     if show_df.empty:
         return None
     axis_label = "Return $" if dollars else "Return %"
@@ -78,14 +83,53 @@ def performers_figure(df: pd.DataFrame, perf_col: str, n: int = 5, *, dollars: b
         color_continuous_scale=["#ef4444", "#22c55e"],
         labels={"return_display": axis_label, "ticker": ""},
     )
+    # Scale height so all bars stay readable when showing many holdings.
+    height = max(400, len(show_df) * 22 + 80)
     fig.update_layout(
         showlegend=False,
         coloraxis_showscale=False,
         margin=dict(t=0, b=0, l=0, r=0),
-        height=400,
+        height=height,
     )
     if dollars:
         fig.update_xaxes(tickprefix="$")
+    return fig
+
+
+# US / International / Unknown → fixed colors so the slice mapping is stable.
+_GEO_COLORS = {"US": "#3b82f6", "International": "#f59e0b", "Unknown": "#9ca3af"}
+
+
+def geo_exposure_figure(df: pd.DataFrame) -> go.Figure | None:
+    """Donut of US vs International exposure by USD market value (by domicile).
+
+    Reads the ``domicile`` column (US / International / Unknown). ADRs are
+    International here because ``domicile`` is classified by the company's
+    country, not its listing venue.
+    """
+    if "domicile" not in df.columns or "market_value" not in df.columns:
+        return None
+    geo_df = df[df["market_value"].notna()].copy()
+    geo_df = geo_df[geo_df["domicile"].astype(str) != ""]
+    if geo_df.empty:
+        return None
+    grp = geo_df.groupby("domicile")["market_value"].sum().reset_index()
+    if grp.empty or grp["market_value"].sum() <= 0:
+        return None
+    # Stable slice order: US, International, then any Unknown.
+    order = {"US": 0, "International": 1, "Unknown": 2}
+    grp["__o"] = grp["domicile"].map(lambda d: order.get(d, 3))
+    grp.sort_values("__o", inplace=True)
+    fig = px.pie(
+        grp,
+        values="market_value",
+        names="domicile",
+        hole=0.4,
+        color="domicile",
+        color_discrete_map=_GEO_COLORS,
+    )
+    fig.update_traces(textposition="inside", textinfo="label+percent")
+    fig.update_layout(showlegend=True, margin=dict(t=0, b=0, l=0, r=0), height=400)
     return fig
 
 

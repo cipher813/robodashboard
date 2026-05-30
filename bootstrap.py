@@ -35,8 +35,13 @@ def get_portfolio(account_numbers: tuple[str, ...] | None = None):
     ``account_numbers`` restricts to those accounts (per-account / multi-account
     view); None = all accounts consolidated. A tuple keeps it hashable for cache.
     """
-    _, cache, reader, _ = get_clients()
-    return load_portfolio(reader, cache, list(account_numbers) if account_numbers else None)
+    config, cache, reader, _ = get_clients()
+    return load_portfolio(
+        reader,
+        cache,
+        list(account_numbers) if account_numbers else None,
+        domicile_overrides=config.get("domicile_overrides"),
+    )
 
 
 @st.cache_data(ttl=300)

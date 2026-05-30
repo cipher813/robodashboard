@@ -33,6 +33,14 @@ accounts:
   U00000003: "Growth"
   U00000004: "Dividend Anchor"
 
+# US-vs-International exposure (Geographic Exposure chart) is classified by
+# company domicile from yfinance's `country` field — so ADRs (RIO, ASML, TSM…)
+# count as International despite their US listing. Override per ticker here when
+# the automatic classification is wrong or ambiguous — e.g. a US-domiciled fund
+# that gives international *exposure* (Franklin International ETF):
+domicile_overrides:
+  DIVI: "International"
+
 # Phase 4 — AI advisor
 # investor_profile:
 #   strategy: "growth with income"
