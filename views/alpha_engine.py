@@ -3,6 +3,8 @@
 Joins alpha-engine research signals (ENTER/HOLD/EXIT + composite score) and
 predictor predictions (UP/FLAT/DOWN + confidence + 21d alpha + veto) onto the
 tickers you actually own, and flags buy candidates you don't yet hold.
+
+Registered via ``st.navigation`` from ``app.py`` (no ``st.set_page_config`` here).
 """
 
 from __future__ import annotations
@@ -12,7 +14,6 @@ import streamlit as st
 from bootstrap import get_clients, get_portfolio
 from loaders import alpha_engine as ae
 
-st.set_page_config(page_title="Alpha Engine · RoboDashboard", page_icon=":robot_face:", layout="wide")
 st.title("Alpha Engine")
 st.caption("Your paper-trading system's research signals + predictor view, mapped onto your real holdings.")
 
