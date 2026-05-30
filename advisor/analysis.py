@@ -8,6 +8,8 @@ of anything the dashboard already has. Fully unit-tested; the Claude narrative
 
 from __future__ import annotations
 
+import hashlib
+import json
 from dataclasses import asdict, dataclass, field
 
 import pandas as pd
@@ -141,3 +143,38 @@ def analyze(df: pd.DataFrame, profile: InvestorProfile | None) -> PortfolioAnaly
         concentration=_concentration(df, profile),
         income=_income(df, nav, profile),
     )
+
+
+def coarse_signature(analysis: PortfolioAnalysis, model: str, posture: str) -> str:
+    """Stable cache key that ignores trivial price drift.
+
+    Buckets NAV to ~$10k, percentages/gaps to ~1pp, and income to ~$100 so a few
+    cents of price movement maps to the SAME key — the LLM commentary is only
+    regenerated when something materially changed (an allocation crossing a point,
+    a position breaching the cap, a sector shifting). This is the cost chokepoint:
+    combined with the explicit Generate button, an LLM call happens only on a
+    deliberate click for a genuinely new portfolio state.
+    """
+    g = analysis.geo
+
+    def b1(x: float | None) -> int | None:
+        return round(x) if x is not None else None
+
+    parts = {
+        "nav_10k": round(analysis.nav / 10_000),
+        "us": b1(g.us_pct),
+        "intl": b1(g.intl_pct),
+        "us_gap": b1(g.us_gap_pp),
+        "intl_gap": b1(g.intl_gap_pp),
+        "conc": sorted((c.ticker, round(c.weight_pct)) for c in analysis.concentration),
+        "sectors": sorted((s.sector, round(s.weight_pct), s.flag) for s in analysis.sectors),
+        "income_100": round(analysis.income.annual_income / 100) if analysis.income else 0,
+        "income_gap_100": (
+            round(analysis.income.income_gap / 100)
+            if (analysis.income and analysis.income.income_gap is not None)
+            else None
+        ),
+        "model": model,
+        "posture": posture,
+    }
+    return hashlib.sha256(json.dumps(parts, sort_keys=True, default=str).encode()).hexdigest()

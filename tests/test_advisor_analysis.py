@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pandas as pd
 
-from advisor.analysis import analyze
+from advisor.analysis import analyze, coarse_signature
 from advisor.profile import InvestorProfile
 
 
@@ -79,3 +79,25 @@ def test_to_dict_is_json_serializable():
 
     a = analyze(_df(), _profile())
     json.dumps(a.to_dict())  # must not raise
+
+
+def test_coarse_signature_stable_under_trivial_price_drift():
+    df = _df()
+    base = coarse_signature(analyze(df, _profile()), "claude-sonnet-4-6", "educational")
+    # Nudge every position by a few dollars (sub-$10k NAV bucket, sub-1pp weight).
+    drift = df.copy()
+    drift["market_value"] = drift["market_value"] + [3.0, -2.0, 1.0, -1.0]
+    after = coarse_signature(analyze(drift, _profile()), "claude-sonnet-4-6", "educational")
+    assert base == after  # trivial drift must NOT trigger a new LLM call
+
+
+def test_coarse_signature_changes_on_material_shift_and_knobs():
+    df = _df()
+    base = coarse_signature(analyze(df, _profile()), "claude-sonnet-4-6", "educational")
+    # Material reallocation: swap 1500 of US (MSFT) into intl (ASML) → geo pct moves >1pp.
+    moved = df.copy()
+    moved.loc[moved["ticker"] == "MSFT", "market_value"] = 1500.0
+    moved.loc[moved["ticker"] == "ASML", "market_value"] = 3500.0
+    assert coarse_signature(analyze(moved, _profile()), "claude-sonnet-4-6", "educational") != base
+    # Posture/model are part of the key too.
+    assert coarse_signature(analyze(df, _profile()), "claude-sonnet-4-6", "candid") != base
