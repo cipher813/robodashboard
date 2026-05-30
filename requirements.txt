@@ -9,3 +9,4 @@ numpy>=1.26
 python-dotenv>=1.0
 curl-cffi>=0.15.0
 boto3>=1.43.17          # Alpha Engine page: read signals/predictions from S3
+anthropic>=0.40         # AI Advisor page (only imported when ai_advisor.enabled)

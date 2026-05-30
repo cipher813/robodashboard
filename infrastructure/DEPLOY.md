@@ -26,6 +26,13 @@ aws ssm put-parameter --type SecureString --name /alpha-engine/robodashboard/SNA
 
 Take the values from your local `.env`. Do not echo them into a shared shell history you don't control.
 
+**AI Advisor (optional, Phase 4).** Only needed when `ai_advisor.enabled: true`. `load_secrets.sh`
+routes any non-`config-yaml` SSM param straight to `.env`, so the key flows in with no script change:
+
+```
+aws ssm put-parameter --type SecureString --name /alpha-engine/robodashboard/ANTHROPIC_API_KEY --value '<sk-ant-...>' --overwrite
+```
+
 ### App config (account labels, etc.) — `config-yaml` param
 
 Non-secret app config lives in one SSM param that `load_secrets.sh` writes to
@@ -51,6 +58,24 @@ YAML
 
 `load_secrets.sh` splits this out from the `SNAPTRADE_*` secrets (it's written to
 `config.yaml`, not `.env`). Re-run after editing: `sudo systemctl restart robodashboard`.
+
+To enable the **AI Advisor** on the box, add an `ai_advisor` block (and an
+`investor_profile`) to the same `config-yaml` value — see `config.yaml.example`:
+
+```
+ai_advisor:
+  enabled: true
+  default_on: true
+  model: "claude-sonnet-4-6"
+  posture: "educational"
+investor_profile:
+  target_allocation: {us_equity: 0.60, international: 0.15, fixed_income: 0.15, alternatives: 0.10}
+  max_single_position: 0.10
+  income_target: 25000
+```
+
+Leaving the block out (or `enabled: false`) ships the dashboard with no AI — the
+commercial default. Enabling it also requires the `ANTHROPIC_API_KEY` param above.
 
 ## 2. Deploy to the EC2 (via SSM)
 
