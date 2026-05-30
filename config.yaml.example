@@ -52,7 +52,7 @@ domicile_overrides:
 ai_advisor:
   enabled: false
   default_on: true
-  model: "claude-sonnet-4-6"
+  model: "claude-haiku-4-5"   # cost-conscious default; bump to claude-sonnet-4-6 for a more nuanced read
   posture: "educational"   # educational (commercial-ready framing) | candid (direct, personal)
   max_tokens: 1500
 
