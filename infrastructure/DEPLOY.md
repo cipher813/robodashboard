@@ -43,6 +43,8 @@ accounts:
   U00000002: "Roth IRA"
   U00000003: "Growth"
   U00000004: "Dividend Anchor"
+domicile_overrides:
+  DIVI: "International"
 YAML
 )"
 ```

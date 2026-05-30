@@ -86,7 +86,12 @@ class PriceCache:
         if cache_path.exists():
             cache_age = time.time() - cache_path.stat().st_mtime
             if cache_age < self._info_max_age_hours * 3600:
-                return json.loads(cache_path.read_text())
+                cached = json.loads(cache_path.read_text())
+                # Schema-drift guard: a payload written before a field was added
+                # is missing that key — treat as a miss so it refetches (else the
+                # new field stays empty until the weekly TTL lapses).
+                if "country" in cached:
+                    return cached
 
         try:
             info = yf.Ticker(ticker).info or {}
@@ -94,6 +99,7 @@ class PriceCache:
                 "name": info.get("shortName") or info.get("longName", ticker),
                 "sector": info.get("sector", ""),
                 "industry": info.get("industry", ""),
+                "country": info.get("country", ""),
                 "dividend_yield": info.get("dividendYield"),
                 "forward_dividend": info.get("dividendRate"),
                 "beta": info.get("beta"),

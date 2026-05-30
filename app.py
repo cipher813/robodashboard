@@ -116,7 +116,7 @@ with chart_col1:
         st.plotly_chart(sector_fig, width="stretch")
 
 with chart_col2:
-    pw_col, unit_col = st.columns([2, 1])
+    pw_col, unit_col, count_col = st.columns([2, 1, 1])
     with pw_col:
         perf_window = st.selectbox(
             "Performers window",
@@ -126,9 +126,35 @@ with chart_col2:
         )
     with unit_col:
         perf_unit = st.radio("Show", ["%", "$"], horizontal=True, key="perf_unit")
-    perf_fig = charts.performers_figure(df, charts.PERFORMERS_COL_MAP[perf_window], dollars=(perf_unit == "$"))
+    with count_col:
+        # Count taken from EACH end (top N gainers + bottom N losers); "All"
+        # shows every holding.
+        perf_count_label = st.radio("Count", ["5", "10", "All"], horizontal=True, key="perf_count")
+    perf_n = None if perf_count_label == "All" else int(perf_count_label)
+    perf_fig = charts.performers_figure(
+        df, charts.PERFORMERS_COL_MAP[perf_window], n=perf_n, dollars=(perf_unit == "$")
+    )
     if perf_fig is not None:
         st.plotly_chart(perf_fig, width="stretch")
+
+# ── Geographic exposure (US vs International by domicile) ────────────────────
+
+st.subheader("Geographic Exposure")
+geo_col1, geo_col2 = st.columns([2, 1])
+with geo_col1:
+    geo_fig = charts.geo_exposure_figure(df)
+    if geo_fig is not None:
+        st.plotly_chart(geo_fig, width="stretch")
+    else:
+        st.info("No domicile data available.")
+with geo_col2:
+    if "domicile" in df.columns and df["market_value"].sum() > 0:
+        by_geo = df.groupby("domicile")["market_value"].sum()
+        total_mv = by_geo.sum()
+        st.caption("US vs International — by company domicile (ADRs count as International).")
+        for label in ("US", "International", "Unknown"):
+            if label in by_geo.index:
+                st.metric(label, f"{by_geo[label] / total_mv * 100:.1f}%", f"${by_geo[label]:,.0f}")
 
 # ── Portfolio performance chart ─────────────────────────────────────────────
 

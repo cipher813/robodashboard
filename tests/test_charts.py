@@ -79,6 +79,33 @@ def test_performers_figure_dollars_mode_uses_unrealized_pnl():
     assert fig.data[0].x[0] == pytest.approx(-90.0)
 
 
+def test_performers_figure_n_none_shows_all_holdings():
+    df = _portfolio_df()  # 3 rows
+    # n=5 would top/bottom-5 (capped to all 3); n=None must also show all 3 but
+    # via the all-holdings path (no dedup gymnastics) and one bar per ticker.
+    fig = charts.performers_figure(df, "return_pct", n=None)
+    assert fig is not None
+    assert set(fig.data[0].y) == {"AAPL", "MSFT", "XOM"}
+    assert len(fig.data[0].y) == 3
+
+
+def test_geo_exposure_figure_buckets_us_vs_international():
+    df = _portfolio_df()
+    df["domicile"] = ["US", "International", "Unknown"]
+    fig = charts.geo_exposure_figure(df)
+    assert fig is not None
+    labels = list(fig.data[0].labels)
+    # Stable order: US, International, then Unknown.
+    assert labels == ["US", "International", "Unknown"]
+    values = list(fig.data[0].values)
+    assert values[0] == pytest.approx(2000.0)  # US = AAPL
+    assert values[1] == pytest.approx(1500.0)  # International = MSFT
+
+
+def test_geo_exposure_figure_none_without_domicile_column():
+    assert charts.geo_exposure_figure(_portfolio_df()) is None
+
+
 def test_portfolio_performance_figure_returns_none_without_tickers():
     assert charts.portfolio_performance_figure(_portfolio_df(), _FakeCache(), "1Y", []) is None
 

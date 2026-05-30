@@ -20,6 +20,7 @@ from data.metrics import (
     pct_from_52w_high,
 )
 from data.price_cache import PriceCache
+from loaders.domicile import classify_domicile
 from snaptrade_reader import SnapTradeReader, aggregate_holdings
 
 logger = logging.getLogger(__name__)
@@ -45,6 +46,7 @@ def load_portfolio(
     reader: SnapTradeReader | None,
     cache: PriceCache,
     account_numbers: list[str] | None = None,
+    domicile_overrides: dict | None = None,
 ) -> tuple[pd.DataFrame, str]:
     """Load and enrich portfolio data.
 
@@ -53,6 +55,8 @@ def load_portfolio(
         cache: PriceCache for historical prices and fundamentals.
         account_numbers: Restrict to these accounts before aggregating
             (per-account / multi-account view). None = all accounts (consolidated).
+        domicile_overrides: Optional ``{ticker: "US"|"International"}`` map that
+            wins over the automatic US/International domicile classification.
 
     Returns:
         (enriched_df, source) where source is "live" or "cached ({timestamp})".
@@ -75,10 +79,10 @@ def load_portfolio(
     if holdings.empty:
         return holdings, source
 
-    return _enrich(holdings, cache), source
+    return _enrich(holdings, cache, domicile_overrides), source
 
 
-def _enrich(holdings: pd.DataFrame, cache: PriceCache) -> pd.DataFrame:
+def _enrich(holdings: pd.DataFrame, cache: PriceCache, domicile_overrides: dict | None = None) -> pd.DataFrame:
     """Enrich per-ticker aggregated holdings with prices, metrics, USD values."""
     # Get SPY history for beta computation
     spy_hist = cache.get_spy_history()
@@ -121,6 +125,8 @@ def _enrich(holdings: pd.DataFrame, cache: PriceCache) -> pd.DataFrame:
                 "ticker": ticker,
                 "name": info.get("name", ticker),
                 "sector": info.get("sector", ""),
+                "country": info.get("country", ""),
+                "domicile": classify_domicile(ticker, info.get("country", ""), domicile_overrides),
                 "currency": currency,
                 "fx_to_usd": fx,
                 "shares": shares,
