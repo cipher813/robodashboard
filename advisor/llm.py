@@ -19,7 +19,10 @@ from dataclasses import dataclass
 from advisor.analysis import PortfolioAnalysis
 from advisor.profile import InvestorProfile
 
-DEFAULT_MODEL = "claude-sonnet-4-6"
+# Haiku is the cost-conscious default for this dashboard-side advisory narrative
+# (short, structured-data-conditioned). Override via ai_advisor.model — e.g. bump
+# to claude-sonnet-4-6 if you want a more nuanced read.
+DEFAULT_MODEL = "claude-haiku-4-5"
 DEFAULT_MAX_TOKENS = 1500
 TOOL_NAME = "emit_advisory"
 

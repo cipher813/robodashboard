@@ -66,7 +66,7 @@ To enable the **AI Advisor** on the box, add an `ai_advisor` block (and an
 ai_advisor:
   enabled: true
   default_on: true
-  model: "claude-sonnet-4-6"
+  model: "claude-haiku-4-5"
   posture: "educational"
 investor_profile:
   target_allocation: {us_equity: 0.60, international: 0.15, fixed_income: 0.15, alternatives: 0.10}
