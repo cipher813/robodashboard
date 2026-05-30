@@ -3,6 +3,8 @@
 Unlike the Overview's performance chart (which applies *today's* share counts to
 historical prices), this view plots the actual NAV recorded each day the
 dashboard was run, so it reflects real holdings as they changed over time.
+
+Registered via ``st.navigation`` from ``app.py`` (no ``st.set_page_config`` here).
 """
 
 from __future__ import annotations
@@ -13,7 +15,6 @@ from bootstrap import get_clients
 from data.snapshots import load_history
 from ui import history as history_ui
 
-st.set_page_config(page_title="History · RoboDashboard", page_icon=":chart_with_upwards_trend:", layout="wide")
 st.title("Portfolio History")
 
 config, _, _, _ = get_clients()
