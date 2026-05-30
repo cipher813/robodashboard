@@ -29,6 +29,37 @@ def test_build_snapshot_row_computes_totals():
     assert row["source"] == "live"
 
 
+def test_build_snapshot_row_records_authoritative_nav():
+    """When authoritative NAV is given (positions + cash), it's recorded as NAV."""
+    positions = 10 * 110.0 + 5 * 220.0  # 2200
+    row = snapshots.build_snapshot_row(
+        _df(), spy_close=500.0, source="live", nav=positions + 300.0, today=date(2026, 4, 7)
+    )
+    assert row["nav"] == positions + 300.0  # authoritative total, not positions-only
+    # return_pct is the unrealized return on positions (pnl/cost), not nav/cost.
+    expected_cost = 10 * 100.0 + 5 * 200.0
+    expected_pnl = 10 * 10.0 + 5 * 20.0
+    assert abs(row["return_pct"] - expected_pnl / expected_cost) < 1e-9
+
+
+def test_build_snapshot_row_cost_is_fx_aware():
+    """Foreign cost basis must be FX-converted, not summed at face value."""
+    df = pd.DataFrame(
+        {
+            "ticker": ["1299.HK"],
+            "shares": [1000],
+            "avg_cost": [90.0],  # native HKD
+            "current_price": [100.0],
+            "fx_to_usd": [0.128],
+            "market_value": [1000 * 100.0 * 0.128],  # USD
+            "unrealized_pnl": [1000 * 10.0 * 0.128],  # USD
+        }
+    )
+    row = snapshots.build_snapshot_row(df, spy_close=None, source="live", today=date(2026, 4, 7))
+    # cost = 90 * 1000 * 0.128 = $11,520 (FX-converted), not $90,000.
+    assert abs(row["cost"] - 90.0 * 1000 * 0.128) < 1e-6
+
+
 def test_load_history_empty_when_absent(tmp_path):
     h = snapshots.load_history(tmp_path / "snapshots")
     assert h.empty
