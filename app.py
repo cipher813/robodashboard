@@ -66,7 +66,12 @@ try:
     all_df, _ = get_portfolio(None)
     spy_hist = cache.get_spy_history()
     spy_close = float(spy_hist["Close"].iloc[-1]) if not spy_hist.empty else None
-    write_snapshot(all_df, spy_close=spy_close, source=source)
+    # Record true NAV (positions + cash) from IBKR's authoritative per-account
+    # totals, so the History series reconciles to the breakdown. Falls back to
+    # positions-only when no breakdown is available (offline/cached).
+    breakdown = get_account_breakdown()
+    nav_total = sum(r["total"] for r in breakdown) if breakdown else None
+    write_snapshot(all_df, spy_close=spy_close, source=source, nav=nav_total)
 except Exception as e:  # snapshotting is best-effort; never block the dashboard
     logging.getLogger(__name__).warning("Snapshot write failed: %s", e)
 
