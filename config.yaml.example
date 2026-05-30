@@ -41,19 +41,36 @@ accounts:
 domicile_overrides:
   DIVI: "International"
 
-# Phase 4 — AI advisor
-# investor_profile:
-#   strategy: "growth with income"
-#   risk_tolerance: "moderate"
-#   time_horizon: "10+ years"
-#   target_allocation:
-#     us_equity: 0.60
-#     international: 0.15
-#     fixed_income: 0.15
-#     alternatives: 0.10
-#   sector_preferences:
-#     overweight: ["Technology", "Healthcare"]
-#     avoid: []
-#   income_target: 25000
-#   max_single_position: 0.10
-#   rebalance_frequency: "quarterly"
+# ── Phase 4 — AI Advisor ─────────────────────────────────────────────────────
+# Two-level gating:
+#   1. enabled (PROVISIONING): false → the AI Advisor page is never registered and
+#      the anthropic SDK is never imported. Commercial v1 ships with this false, for
+#      SEC investment-adviser reasons — zero AI footprint.
+#   2. default_on (RUNTIME): initial state of the sidebar "AI insights" toggle (only
+#      shown when enabled). Flip it live to A/B the dashboard with vs without AI.
+# Requires ANTHROPIC_API_KEY in the environment (.env locally, SSM on the box).
+ai_advisor:
+  enabled: false
+  default_on: true
+  model: "claude-sonnet-4-6"
+  posture: "educational"   # educational (commercial-ready framing) | candid (direct, personal)
+  max_tokens: 1500
+
+# The advisor compares your portfolio against these stated targets. Uncomment +
+# customize. target_allocation values are fractions of your TOTAL portfolio; the
+# advisor normalizes us_equity/international to the equity sleeve it can see.
+investor_profile:
+  strategy: "growth with income"
+  risk_tolerance: "moderate"
+  time_horizon: "10+ years"
+  target_allocation:
+    us_equity: 0.60
+    international: 0.15
+    fixed_income: 0.15
+    alternatives: 0.10
+  sector_preferences:
+    overweight: ["Technology", "Healthcare"]
+    avoid: []
+  income_target: 25000
+  max_single_position: 0.10
+  rebalance_frequency: "quarterly"
