@@ -162,18 +162,39 @@ def _enrich(holdings: pd.DataFrame, cache: PriceCache) -> pd.DataFrame:
     return df
 
 
-def account_breakdown(reader: SnapTradeReader | None, cache: PriceCache, labels: dict | None = None) -> list[dict]:
-    """Per-account balances: cash + positions market value (USD) + total.
+def _positions_usd(all_holdings: pd.DataFrame, number: str, cache: PriceCache) -> float:
+    """Sum a single account's position market values, FX-converted to USD.
 
-    Pulls holdings once and aggregates/enriches per account, so it doesn't
-    re-hit the API per account. Returns [] when there's no reader.
+    Uses SnapTrade's broker-reported ``market_value`` (units × current price in
+    the security's native currency) rather than yfinance prices, so the figure
+    is consistent with IBKR's own valuation — the cash plug derived from it then
+    reconciles to IBKR's authoritative account total.
+    """
+    if all_holdings.empty or "account_number" not in all_holdings.columns:
+        return 0.0
+    sub = all_holdings[all_holdings["account_number"] == number]
+    if sub.empty:
+        return 0.0
+    return float(
+        sum(float(r["market_value"]) * cache.get_fx_rate(r.get("currency", "USD") or "USD") for _, r in sub.iterrows())
+    )
+
+
+def account_breakdown(reader: SnapTradeReader | None, cache: PriceCache, labels: dict | None = None) -> list[dict]:
+    """Per-account balances: positions (USD) + derived cash + IBKR total.
+
+    ``total`` is IBKR's authoritative per-account value (USD, positions + cash,
+    converted with IBKR's own FX). ``positions`` is the broker-reported holdings
+    value FX-converted to USD. ``cash`` is derived as ``total − positions`` — a
+    plug against the authoritative total, NOT a face-value sum of per-currency
+    cash buckets (which would add HKD/SGD/USD as if all were dollars and badly
+    overstate cash). Pulls holdings once; returns [] when there's no reader.
     """
     if reader is None:
         return []
     labels = labels or {}
     try:
         all_holdings = reader.get_all_holdings()
-        balances = reader.get_balances()
         accounts = reader.get_accounts()
     except Exception as e:  # best-effort; the breakdown is secondary
         logger.warning("account_breakdown fetch failed: %s", e)
@@ -184,8 +205,8 @@ def account_breakdown(reader: SnapTradeReader | None, cache: PriceCache, labels:
         number = acct.get("number", "")
         name = acct["name"]
         label = labels.get(number) or labels.get(name) or name
-        cash = float(balances.get(name, 0.0))
-        per_acct = aggregate_holdings(all_holdings, [number])
-        positions = float(_enrich(per_acct, cache)["market_value"].sum()) if not per_acct.empty else 0.0
-        rows.append({"label": label, "number": number, "cash": cash, "positions": positions, "total": positions + cash})
+        total = float(acct.get("balance_total", 0.0))
+        positions = _positions_usd(all_holdings, number, cache)
+        cash = total - positions
+        rows.append({"label": label, "number": number, "cash": cash, "positions": positions, "total": total})
     return rows

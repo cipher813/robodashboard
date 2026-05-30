@@ -93,12 +93,20 @@ class SnapTradeReader:
         )
         accounts = []
         for acct in response.body:
+            # IBKR's own total account value in USD (positions + cash, converted
+            # with IBKR's FX). This is the authoritative NAV per account — we
+            # derive cash from it rather than summing per-currency cash buckets,
+            # which would otherwise add HKD/SGD/USD at face value.
+            balance = acct.get("balance") or {}
+            total = balance.get("total") or {} if isinstance(balance, dict) else {}
+            balance_total = float(total.get("amount", 0.0)) if isinstance(total, dict) else 0.0
             accounts.append(
                 {
                     "id": str(acct.get("id", "")),
                     "name": acct.get("name", ""),
                     "number": acct.get("number", ""),
                     "type": acct.get("institution_type", acct.get("type", "")),
+                    "balance_total": balance_total,
                     "institution": acct.get("brokerage_authorization", {}).get("brokerage", {}).get("name", "")
                     if isinstance(acct.get("brokerage_authorization"), dict)
                     else "",
@@ -133,8 +141,11 @@ class SnapTradeReader:
                     "shares": float(pos.get("units", 0)),
                     "avg_cost": float(pos.get("average_purchase_price") or 0),
                     "current_price": float(pos.get("price") or 0),
-                    "market_value": float(pos.get("open_pnl", 0))
-                    + float(pos.get("units", 0)) * float(pos.get("average_purchase_price") or 0),
+                    # Current market value in the security's native currency.
+                    # units × price — NOT open_pnl + units × avg_cost: SnapTrade's
+                    # open_pnl can be mis-scaled (observed ~1.6 on a ~1,900 HKD
+                    # gain), which silently understated foreign-position value.
+                    "market_value": float(pos.get("units", 0)) * float(pos.get("price") or 0),
                 }
             )
         return holdings
@@ -166,32 +177,15 @@ class SnapTradeReader:
         """
         return aggregate_holdings(self.get_all_holdings(), account_numbers)
 
-    def get_balances(self) -> dict:
-        """Get cash balances per account and aggregate."""
-        accounts = self.get_accounts()
-        balances = {}
-        total_cash = 0.0
-        for acct in accounts:
-            try:
-                response = self._client.account_information.get_user_account_balance(
-                    account_id=acct["id"],
-                    user_id=self._user_id,
-                    user_secret=self._user_secret,
-                )
-                cash = sum(float(b.get("cash", 0)) for b in response.body)
-                balances[acct["name"]] = cash
-                total_cash += cash
-            except Exception as e:
-                logger.warning("Failed to fetch balance for account %s: %s", acct["name"], e)
-        balances["total"] = total_cash
-        return balances
-
     def get_total_nav(self) -> float:
-        """Get total net asset value across all accounts."""
-        holdings = self.get_all_holdings()
-        balances = self.get_balances()
-        positions_value = holdings["market_value"].sum() if not holdings.empty else 0
-        return positions_value + balances.get("total", 0)
+        """Get total net asset value across all accounts.
+
+        Uses IBKR's authoritative per-account ``balance_total`` (USD, positions +
+        cash, converted with IBKR's own FX). We do NOT sum per-currency cash
+        buckets ourselves — the SnapTrade balance endpoint returns one ``cash``
+        entry per currency, and adding HKD/SGD/USD at face value overstates NAV.
+        """
+        return sum(float(a.get("balance_total", 0.0)) for a in self.get_accounts())
 
     def _save_cache(self, df: pd.DataFrame) -> None:
         """Save positions to local cache for offline fallback."""
