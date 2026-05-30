@@ -39,9 +39,10 @@ alpha_engine:
   enabled: true
   bucket: alpha-engine-research
 accounts:
-  U23569039: "Traditional IRA"
-  U23568545: "Roth IRA"
-  U24215043: "Taxable"
+  U00000001: "Trad IRA"
+  U00000002: "Roth IRA"
+  U00000003: "Growth"
+  U00000004: "Dividend Anchor"
 YAML
 )"
 ```
