@@ -38,6 +38,10 @@ pages = [
 config, *_ = get_clients()
 ai_cfg = config.get("ai_advisor", {})
 if ai_cfg.get("enabled", False):
+    # Preferences feeds the advisor's gap analysis, so it's provisioned together
+    # — but shown regardless of the runtime toggle, so you can set targets without
+    # turning on AI commentary.
+    pages.append(st.Page("views/preferences.py", title="Preferences", icon=":material/tune:"))
     ai_on = st.sidebar.toggle("AI insights", value=ai_cfg.get("default_on", True), key="ai_insights_on")
     if ai_on:
         pages.append(st.Page("views/ai_advisor.py", title="AI Advisor", icon=":material/auto_awesome:"))

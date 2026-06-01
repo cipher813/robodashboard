@@ -66,9 +66,13 @@ ai_advisor:
   posture: "educational"   # educational (commercial-ready framing) | candid (direct, personal)
   max_tokens: 1500
 
-# The advisor compares your portfolio against these stated targets. Uncomment +
-# customize. target_allocation values are fractions of your TOTAL portfolio; the
-# advisor normalizes us_equity/international to the equity sleeve it can see.
+# The advisor compares your portfolio against these stated targets. This block is
+# only the SEED default — the in-app **Preferences** page (shown when ai_advisor is
+# enabled) lets you edit these live and saves them to cache/investor_profile.json,
+# which OVERRIDES this block and persists across restarts/deploys. Uncomment +
+# customize for the initial defaults. target_allocation values are fractions of
+# your TOTAL portfolio; the advisor normalizes us_equity/international to the equity
+# sleeve it can see.
 investor_profile:
   strategy: "growth with income"
   risk_tolerance: "moderate"
