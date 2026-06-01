@@ -272,5 +272,14 @@ def account_breakdown(reader: SnapTradeReader | None, cache: PriceCache, labels:
         total = float(acct.get("balance_total", 0.0))
         positions = _positions_usd(all_holdings, number, cache)
         cash = total - positions
-        rows.append({"label": label, "number": number, "cash": cash, "positions": positions, "total": total})
+        rows.append(
+            {
+                "label": label,
+                "number": number,
+                "cash": cash,
+                "positions": positions,
+                "total": total,
+                "last_sync": acct.get("last_holdings_sync"),
+            }
+        )
     return rows
