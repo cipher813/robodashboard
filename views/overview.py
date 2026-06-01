@@ -44,16 +44,26 @@ if len(account_options) > 1:
         selected_numbers = tuple(label_to_num[label] for label in chosen)
 
 
-def _render_freshness_badge(source: str) -> None:
-    """Honest data-freshness line: positions cadence vs live price cadence."""
+def _positions_freshness(rows) -> str:
+    """'positions synced …' clause naming the OLDEST account sync (worst case)."""
+    syncs = [r.get("last_sync") for r in (rows or []) if r.get("last_sync")]
+    if not syncs:
+        return "positions via SnapTrade daily sync"
+    oldest = min(syncs)  # ISO-8601 strings sort chronologically
+    return f"positions synced {summary.humanize_age(oldest)} (oldest account) via SnapTrade daily sync"
+
+
+def _render_freshness_badge(source: str, breakdown) -> None:
+    """Honest data-freshness line: live price cadence + positions sync age."""
     refresh_min = max(1, int(lq_config.get("refresh_seconds", 900)) // 60)
+    positions = _positions_freshness(breakdown)
     if lq_config.get("enabled", True) and is_extended_hours():
         st.caption(
             f"🟢 Live prices — {market_session()} session · yfinance ~15-min delayed · "
-            f"auto-refresh every {refresh_min} min · positions via SnapTrade daily sync"
+            f"auto-refresh every {refresh_min} min · {positions}"
         )
     else:
-        st.caption("⚪ Market closed — showing last close · positions via SnapTrade daily sync")
+        st.caption(f"⚪ Market closed — showing last close · {positions}")
 
 
 # ── Live data view — re-pulls quotes every `refresh_seconds` while markets are
@@ -74,7 +84,9 @@ def render_portfolio() -> None:
 
     if "cached" in source:
         st.warning(f"Showing cached data — {source}")
-    _render_freshness_badge(source)
+
+    breakdown = get_account_breakdown()  # per-account positions/cash/total + last_sync
+    _render_freshness_badge(source, breakdown)
 
     # ── Record daily snapshot — always all-accounts, independent of the view ──
     try:
@@ -84,19 +96,18 @@ def render_portfolio() -> None:
         # Record true NAV (positions + cash) from IBKR's authoritative per-account
         # totals, so the History series reconciles to the breakdown. Falls back to
         # positions-only when no breakdown is available (offline/cached).
-        breakdown = get_account_breakdown()
         nav_total = sum(r["total"] for r in breakdown) if breakdown else None
         write_snapshot(all_df, spy_close=spy_close, source=source, nav=nav_total)
     except Exception as e:  # snapshotting is best-effort; never block the dashboard
         logging.getLogger(__name__).warning("Snapshot write failed: %s", e)
 
-    _render_portfolio_body(df, source)
+    _render_portfolio_body(df, source, breakdown)
 
 
-def _render_portfolio_body(df, source) -> None:
+def _render_portfolio_body(df, source, breakdown) -> None:
     # ── Summary ──────────────────────────────────────────────────────────────
     summary.render_summary_cards(df)
-    summary.render_account_breakdown(get_account_breakdown())
+    summary.render_account_breakdown(breakdown)
 
     # ── Holdings table ───────────────────────────────────────────────────────
     st.subheader("Holdings")

@@ -1,8 +1,48 @@
 """Tests for ui/summary.py totals."""
 
+from datetime import UTC, datetime, timedelta
+
 import pandas as pd
 
 from ui import summary
+
+
+class TestHumanizeAge:
+    NOW = datetime(2026, 6, 1, 18, 0, tzinfo=UTC)
+
+    def test_none_is_unknown(self):
+        assert summary.humanize_age(None, now=self.NOW) == "unknown"
+
+    def test_unparseable_is_unknown(self):
+        assert summary.humanize_age("not-a-date", now=self.NOW) == "unknown"
+
+    def test_minutes(self):
+        ts = (self.NOW - timedelta(minutes=8)).isoformat()
+        assert summary.humanize_age(ts, now=self.NOW) == "8m ago"
+
+    def test_hours(self):
+        ts = (self.NOW - timedelta(hours=20)).isoformat()
+        assert summary.humanize_age(ts, now=self.NOW) == "20h ago"
+
+    def test_days(self):
+        ts = (self.NOW - timedelta(days=2, hours=3)).isoformat()
+        assert summary.humanize_age(ts, now=self.NOW) == "2d ago"
+
+    def test_just_now(self):
+        ts = (self.NOW - timedelta(seconds=10)).isoformat()
+        assert summary.humanize_age(ts, now=self.NOW) == "just now"
+
+    def test_z_suffix_parsed(self):
+        # SnapTrade-style timestamps may use a trailing Z.
+        ts = "2026-06-01T10:00:00Z"
+        assert summary.humanize_age(ts, now=self.NOW) == "8h ago"
+
+    def test_naive_string_assumed_utc(self):
+        ts = "2026-06-01T17:00:00"
+        assert summary.humanize_age(ts, now=self.NOW) == "1h ago"
+
+    def test_accepts_datetime(self):
+        assert summary.humanize_age(self.NOW - timedelta(hours=3), now=self.NOW) == "3h ago"
 
 
 def test_portfolio_totals():

@@ -2,8 +2,39 @@
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
+
 import pandas as pd
 import streamlit as st
+
+
+def humanize_age(ts: str | datetime | None, now: datetime | None = None) -> str:
+    """Format a sync timestamp as a short relative age, e.g. ``"8h ago"``.
+
+    Accepts an ISO-8601 string (with ``Z`` or offset) or a datetime; returns
+    ``"unknown"`` for None/unparseable input. Used to show how stale each
+    account's SnapTrade-synced positions are.
+    """
+    if ts is None:
+        return "unknown"
+    if isinstance(ts, str):
+        try:
+            ts = datetime.fromisoformat(ts.replace("Z", "+00:00"))
+        except ValueError:
+            return "unknown"
+    if ts.tzinfo is None:
+        ts = ts.replace(tzinfo=UTC)
+    now = now or datetime.now(UTC)
+    secs = (now - ts).total_seconds()
+    if secs < 0:
+        return "just now"
+    if secs < 60:
+        return "just now"
+    if secs < 3600:
+        return f"{int(secs // 60)}m ago"
+    if secs < 86400:
+        return f"{int(secs // 3600)}h ago"
+    return f"{int(secs // 86400)}d ago"
 
 
 def portfolio_totals(df: pd.DataFrame) -> dict:
@@ -59,7 +90,14 @@ def render_account_breakdown(rows: list[dict] | None) -> None:  # pragma: no cov
         return
     with st.expander("Account breakdown"):
         table = [
-            {"Account": r["label"], "Positions": r["positions"], "Cash": r["cash"], "Total": r["total"]} for r in rows
+            {
+                "Account": r["label"],
+                "Positions": r["positions"],
+                "Cash": r["cash"],
+                "Total": r["total"],
+                "Synced": humanize_age(r.get("last_sync")),
+            }
+            for r in rows
         ]
         st.dataframe(
             pd.DataFrame(table),
@@ -69,6 +107,9 @@ def render_account_breakdown(rows: list[dict] | None) -> None:  # pragma: no cov
                 "Positions": st.column_config.NumberColumn("Positions", format="$%,.0f"),
                 "Cash": st.column_config.NumberColumn("Cash", format="$%,.0f"),
                 "Total": st.column_config.NumberColumn("Total", format="$%,.0f"),
+                "Synced": st.column_config.TextColumn(
+                    "Synced", help="When SnapTrade last refreshed this account's holdings from the broker."
+                ),
             },
         )
         grand_total = sum(r["total"] for r in rows)

@@ -100,6 +100,12 @@ class SnapTradeReader:
             balance = acct.get("balance") or {}
             total = balance.get("total") or {} if isinstance(balance, dict) else {}
             balance_total = float(total.get("amount", 0.0)) if isinstance(total, dict) else 0.0
+            # Holdings sync timestamp — SnapTrade refreshes a Daily-plan account's
+            # holdings ~once/day at a per-brokerage time, so this is how stale the
+            # positions/cash for THIS account actually are (often hours old).
+            sync = acct.get("sync_status") or {}
+            holdings_sync = (sync.get("holdings") or {}) if isinstance(sync, dict) else {}
+            last_sync = holdings_sync.get("last_successful_sync") if isinstance(holdings_sync, dict) else None
             accounts.append(
                 {
                     "id": str(acct.get("id", "")),
@@ -107,6 +113,7 @@ class SnapTradeReader:
                     "number": acct.get("number", ""),
                     "type": acct.get("institution_type", acct.get("type", "")),
                     "balance_total": balance_total,
+                    "last_holdings_sync": last_sync,
                     "institution": acct.get("brokerage_authorization", {}).get("brokerage", {}).get("name", "")
                     if isinstance(acct.get("brokerage_authorization"), dict)
                     else "",

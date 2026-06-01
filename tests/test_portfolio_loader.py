@@ -324,5 +324,35 @@ def test_account_breakdown_multi_currency_cash_is_fx_aware():
     assert abs(r["total"] - 13_000.0) < 1e-6
 
 
+def test_account_breakdown_carries_last_sync():
+    """The per-account holdings sync timestamp flows through to the breakdown row."""
+    reader = MagicMock()
+    reader.get_all_holdings.return_value = pd.DataFrame(
+        [
+            {
+                "account_id": "a1",
+                "account_number": "U1",
+                "ticker": "AAPL",
+                "currency": "USD",
+                "shares": 10,
+                "avg_cost": 100,
+                "market_value": 1000,
+            }
+        ]
+    )
+    reader.get_accounts.return_value = [
+        {
+            "number": "U1",
+            "name": "IRA",
+            "type": "",
+            "institution": "",
+            "balance_total": 1500.0,
+            "last_holdings_sync": "2026-06-01T10:00:00+00:00",
+        }
+    ]
+    rows = account_breakdown(reader, _mock_cache(), None)
+    assert rows[0]["last_sync"] == "2026-06-01T10:00:00+00:00"
+
+
 def test_account_breakdown_no_reader():
     assert account_breakdown(None, _mock_cache()) == []
