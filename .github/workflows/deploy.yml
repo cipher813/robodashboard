@@ -1,0 +1,89 @@
+name: Deploy
+
+# Auto-deploys portfolio.nousergon.ai on every push to main.
+#
+# RoboDashboard runs as a single Streamlit service (robodashboard.service,
+# :8504) on the shared dashboard EC2 instance (i-09b539c844515d549). It does
+# NOT auto-restart on code-only changes, so a merged PR would otherwise sit
+# undeployed until someone manually SSM'd in. This workflow closes that gap.
+#
+# Mechanism (mirrors alpha-engine-dashboard's deploy.yml on the same box):
+# GHA assumes the shared OIDC role, calls SSM send-command on the instance,
+# which (1) fetches + hard-resets the repo to this workflow's commit SHA, then
+# (2) runs infrastructure/deploy-on-merge.sh — dep refresh on requirements
+# change, restart the service, health-check :8504/_stcore/health.
+#
+# Requires the OIDC role's trust policy to allow repo:cipher813/robodashboard
+# (main ref). The role + SSM permissions + instance are shared with the
+# alpha-engine dashboards.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-main
+  cancel-in-progress: false
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  deploy:
+    name: Deploy robodashboard via SSM
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Configure AWS credentials via OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::711398986525:role/github-actions-lambda-deploy
+          aws-region: us-east-1
+
+      - name: Send SSM deploy command
+        id: send
+        run: |
+          set -euo pipefail
+          # Two-phase body: phase 1 pulls the deterministic ref (this
+          # workflow's SHA, not origin/main, to dodge a back-to-back-merge
+          # race) as ec2-user so the deploy script is refreshed before we
+          # invoke it; phase 2 runs that script as root (default SSM user)
+          # so systemctl restart needs no further sudo.
+          CMD_BODY="set -e; cd /home/ec2-user/robodashboard && sudo -u ec2-user git fetch origin --quiet && sudo -u ec2-user git reset --hard ${GITHUB_SHA} --quiet && bash infrastructure/deploy-on-merge.sh ${GITHUB_SHA}"
+          CMD_ID=$(aws ssm send-command \
+            --instance-ids i-09b539c844515d549 \
+            --document-name AWS-RunShellScript \
+            --comment "robodashboard deploy ${GITHUB_SHA}" \
+            --parameters "commands=[\"${CMD_BODY}\"]" \
+            --query 'Command.CommandId' \
+            --output text)
+          echo "command_id=${CMD_ID}" >> "$GITHUB_OUTPUT"
+          echo "Sent SSM command: ${CMD_ID}"
+
+      - name: Wait for SSM command to finish
+        run: |
+          aws ssm wait command-executed \
+            --instance-id i-09b539c844515d549 \
+            --command-id "${{ steps.send.outputs.command_id }}"
+
+      - name: Fetch deploy output
+        if: always()
+        run: |
+          set +e
+          aws ssm get-command-invocation \
+            --instance-id i-09b539c844515d549 \
+            --command-id "${{ steps.send.outputs.command_id }}" \
+            --query '[Status,ResponseCode]' --output text
+          echo "── stdout ──"
+          aws ssm get-command-invocation \
+            --instance-id i-09b539c844515d549 \
+            --command-id "${{ steps.send.outputs.command_id }}" \
+            --query 'StandardOutputContent' --output text
+          echo "── stderr ──"
+          aws ssm get-command-invocation \
+            --instance-id i-09b539c844515d549 \
+            --command-id "${{ steps.send.outputs.command_id }}" \
+            --query 'StandardErrorContent' --output text

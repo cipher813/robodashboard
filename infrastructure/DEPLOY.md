@@ -104,8 +104,20 @@ aws ssm send-command --instance-ids i-09b539c844515d549 \
 
 Verify: `sudo systemctl status robodashboard` and `curl -sI localhost:8504` on the box.
 
-Subsequent deploys: `git pull` + `systemctl restart robodashboard` (add to the
-dashboard's boot-pull if you want auto-pull on reboot).
+### Subsequent deploys — automatic on merge to `main`
+
+`.github/workflows/deploy.yml` auto-deploys every push to `main`: GHA assumes
+the shared OIDC role (`arn:aws:iam::711398986525:role/github-actions-lambda-deploy`,
+trust policy allows `repo:cipher813/robodashboard:ref:refs/heads/main`) and runs
+`aws ssm send-command` on `i-09b539c844515d549`, which hard-resets the repo to the
+merged SHA and runs `infrastructure/deploy-on-merge.sh` (pip refresh on
+`requirements.txt` change → restart `robodashboard` → health-check
+`:8504/_stcore/health`). Live in ~30s; the workflow blocks on `ssm wait` and
+prints the on-box deploy log. Mirrors `alpha-engine-dashboard/.github/workflows/deploy.yml`
+on the same box.
+
+Manual override (rarely needed): `git pull` + `sudo systemctl restart robodashboard`
+on the box, or re-run the **Deploy** workflow via `workflow_dispatch`.
 
 ## 3. nginx (alpha-engine-dashboard repo)
 
