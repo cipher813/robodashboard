@@ -16,6 +16,8 @@ from pathlib import Path
 import pandas as pd
 import yfinance as yf
 
+from data.market_hours import is_extended_hours
+
 logger = logging.getLogger(__name__)
 
 DEFAULT_CACHE_DIR = Path("cache")
@@ -137,6 +139,57 @@ class PriceCache:
         for ticker in tickers:
             self.get_history(ticker)
             self.get_info(ticker)
+
+    def get_live_quotes(self, symbols: list[str], prepost: bool = True) -> dict[str, float]:
+        """Return the latest intraday price per symbol from yfinance.
+
+        Returns ``{}`` when markets are closed (so callers transparently fall
+        back to the daily close) or on any fetch error. ``symbols`` may include
+        FX pairs like ``"SGDUSD=X"``. Pre/post-market bars are included when
+        ``prepost`` is True.
+
+        This is deliberately NOT disk-cached — these quotes are ephemeral
+        intraday values. The 15-minute refresh cadence is owned by the Streamlit
+        ``@st.cache_data(ttl=…)`` wrapper in ``bootstrap.py``; fetching off-hours
+        would only burn API calls to re-derive the same prior close.
+        """
+        symbols = [s for s in dict.fromkeys(symbols) if s]  # dedup, preserve order
+        if not symbols or not is_extended_hours():
+            return {}
+
+        try:
+            data = yf.download(
+                symbols,
+                period="1d",
+                interval="1m",
+                prepost=prepost,
+                progress=False,
+                auto_adjust=False,
+                group_by="ticker",
+                threads=True,
+            )
+        except Exception as e:
+            logger.warning("Live quote fetch failed for %d symbols: %s", len(symbols), e)
+            return {}
+
+        if data is None or data.empty:
+            return {}
+
+        out: dict[str, float] = {}
+        single = len(symbols) == 1
+        for sym in symbols:
+            try:
+                # yfinance flattens columns for a single symbol; multi-symbol with
+                # group_by="ticker" gives a per-symbol sub-frame under data[sym].
+                close = data["Close"] if single else data[sym]["Close"]
+                close = close.dropna()
+                if not close.empty:
+                    price = float(close.iloc[-1])
+                    if price > 0:
+                        out[sym] = price
+            except Exception:
+                continue  # missing/illiquid symbol — caller falls back to daily close
+        return out
 
     def get_spy_history(self) -> pd.DataFrame:
         """Get SPY history (used for beta computation)."""

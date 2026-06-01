@@ -128,6 +128,92 @@ class TestLoadPortfolio:
         assert source == "live"
         assert len(df) == 1
 
+    def test_live_quote_overrides_daily_close(self):
+        # Daily close from the mock cache is 130; a live quote of 200 should win
+        # and flow into market_value / unrealized_pnl.
+        holdings = pd.DataFrame(
+            [{"ticker": "AAPL", "shares": 10, "avg_cost": 110, "market_value": 1300, "n_accounts": 1}]
+        )
+        df, _ = load_portfolio(
+            _mock_reader(holdings),
+            _mock_cache(),
+            quotes_fn=lambda symbols: {"AAPL": 200.0},
+        )
+        row = df.iloc[0]
+        assert row["current_price"] == 200.0
+        assert row["market_value"] == 10 * 200.0  # fx 1.0
+        assert row["unrealized_pnl"] == 10 * (200.0 - 110)
+
+    def test_live_quote_symbols_include_fx_pairs(self):
+        # The quotes_fn must be asked for the FX pair of any non-USD currency.
+        holdings = pd.DataFrame(
+            [
+                {
+                    "ticker": "AAPL",
+                    "currency": "USD",
+                    "shares": 10,
+                    "avg_cost": 100,
+                    "market_value": 1000,
+                    "n_accounts": 1,
+                },
+                {
+                    "ticker": "D05.SI",
+                    "currency": "SGD",
+                    "shares": 10,
+                    "avg_cost": 60,
+                    "market_value": 600,
+                    "n_accounts": 1,
+                },
+            ]
+        )
+        seen = {}
+
+        def spy(symbols):
+            seen["symbols"] = symbols
+            return {}
+
+        load_portfolio(_mock_reader(holdings), _mock_cache(), quotes_fn=spy)
+        assert "AAPL" in seen["symbols"]
+        assert "D05.SI" in seen["symbols"]
+        assert "SGDUSD=X" in seen["symbols"]
+
+    def test_live_fx_rate_overrides_cached(self):
+        # A live FX quote (SGDUSD=X) overrides the cache's daily rate (0.75 → 0.80).
+        holdings = pd.DataFrame(
+            [
+                {
+                    "ticker": "D05.SI",
+                    "currency": "SGD",
+                    "shares": 10,
+                    "avg_cost": 60,
+                    "market_value": 600,
+                    "n_accounts": 1,
+                }
+            ]
+        )
+        cache = _mock_cache()
+        cache.get_fx_rate.side_effect = lambda c: {"USD": 1.0, "SGD": 0.75}.get(c, 1.0)
+        df, _ = load_portfolio(
+            _mock_reader(holdings),
+            cache,
+            quotes_fn=lambda symbols: {"SGDUSD=X": 0.80},
+        )
+        row = df.iloc[0]
+        assert row["fx_to_usd"] == 0.80
+        assert abs(row["market_value"] - row["market_value_local"] * 0.80) < 1e-6
+
+    def test_quotes_fn_failure_falls_back_to_close(self):
+        # If quotes_fn raises, the daily close (130) is used — never crash.
+        holdings = pd.DataFrame(
+            [{"ticker": "AAPL", "shares": 10, "avg_cost": 110, "market_value": 1300, "n_accounts": 1}]
+        )
+
+        def boom(symbols):
+            raise RuntimeError("yfinance down")
+
+        df, _ = load_portfolio(_mock_reader(holdings), _mock_cache(), quotes_fn=boom)
+        assert df.iloc[0]["current_price"] == 130  # mock daily close, unchanged
+
     def test_offline_fallback(self):
         cache = _mock_cache()
 

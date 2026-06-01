@@ -28,19 +28,41 @@ def get_clients():
     return config, cache, reader, messages
 
 
+@st.cache_data(ttl=900)
+def get_live_quotes(symbols: tuple[str, ...]) -> dict[str, float]:
+    """Latest intraday prices per symbol, cached 15 minutes (the live cadence).
+
+    Returns ``{}`` outside extended market hours, on error, or when live quotes
+    are disabled in config — callers then fall back to the daily close. The TTL
+    here is what bounds the Yahoo pull frequency to once per 15 minutes per
+    distinct symbol set, regardless of how often pages rerun.
+    """
+    config, cache, _, _ = get_clients()
+    lq = config.get("live_quotes", {})
+    if not lq.get("enabled", True):
+        return {}
+    return cache.get_live_quotes(list(symbols), prepost=lq.get("prepost", True))
+
+
 @st.cache_data(ttl=300)
 def get_portfolio(account_numbers: tuple[str, ...] | None = None):
     """Load + enrich the portfolio, cached for 5 minutes. Returns (df, source).
 
     ``account_numbers`` restricts to those accounts (per-account / multi-account
     view); None = all accounts consolidated. A tuple keeps it hashable for cache.
+
+    Live intraday quotes are overlaid via ``get_live_quotes`` (15-min cache), so
+    market value / P&L / NAV reflect ~15-min-delayed prices during market hours
+    while positions stay on SnapTrade's daily sync.
     """
     config, cache, reader, _ = get_clients()
+    quotes_fn = get_live_quotes if config.get("live_quotes", {}).get("enabled", True) else None
     return load_portfolio(
         reader,
         cache,
         list(account_numbers) if account_numbers else None,
         domicile_overrides=config.get("domicile_overrides"),
+        quotes_fn=quotes_fn,
     )
 
 
