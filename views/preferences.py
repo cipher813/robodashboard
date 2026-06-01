@@ -32,9 +32,38 @@ STANDARD_SECTORS = [
 ]
 
 
+# Common investment strategies for the Strategy dropdown. A saved/seed value not
+# in this list (or differing only in case) is preserved via _options_with_current.
+STRATEGY_OPTIONS = [
+    "",
+    "Growth",
+    "Growth with income",
+    "Income",
+    "Value",
+    "Balanced",
+    "Aggressive growth",
+    "Capital preservation",
+]
+
+
 def _index(options: list[str], value: str) -> int:
     """Index of ``value`` in ``options`` (0 if absent) — for selectbox defaults."""
     return options.index(value) if value in options else 0
+
+
+def _options_with_current(base: list[str], current: str) -> tuple[list[str], int]:
+    """Return (options, index) for a selectbox, guaranteeing ``current`` is selectable.
+
+    Matches case-insensitively against ``base`` (so a lowercase config seed like
+    "growth with income" selects the title-case option); an unrecognized non-empty
+    value is appended so it's never silently dropped.
+    """
+    if not current:
+        return base, 0
+    for i, opt in enumerate(base):
+        if opt.lower() == current.lower():
+            return base, i
+    return base + [current], len(base)
 
 
 st.title("Investor Preferences")
@@ -63,7 +92,8 @@ alloc = profile.target_allocation
 with st.form("investor_preferences"):
     st.subheader("Strategy")
     c1, c2, c3 = st.columns(3)
-    strategy = c1.text_input("Strategy", value=profile.strategy, placeholder="e.g. growth with income")
+    strategy_opts, strategy_idx = _options_with_current(STRATEGY_OPTIONS, profile.strategy)
+    strategy = c1.selectbox("Strategy", strategy_opts, index=strategy_idx)
     risk = c2.selectbox("Risk tolerance", RISK_OPTIONS, index=_index(RISK_OPTIONS, profile.risk_tolerance))
     horizon = c3.selectbox("Time horizon", HORIZON_OPTIONS, index=_index(HORIZON_OPTIONS, profile.time_horizon))
 
@@ -123,7 +153,7 @@ if submitted:
     }
     save_profile(
         InvestorProfile(
-            strategy=strategy.strip(),
+            strategy=strategy,
             risk_tolerance=risk,
             time_horizon=horizon,
             target_allocation=target_allocation,
