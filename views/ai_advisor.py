@@ -23,6 +23,11 @@ config, _, _, _ = get_clients()
 ai_cfg = config.get("ai_advisor", {})
 profile = load_profile(config)
 
+if profile is None:
+    st.info(
+        "No investor profile set yet — fill in the **Preferences** page so the advisor can compare against your targets."
+    )
+
 df, _ = get_portfolio()
 if df.empty:
     st.error("No holdings loaded — can't analyze the portfolio.")
