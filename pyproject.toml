@@ -41,7 +41,7 @@ addopts = "-q"
 #   bootstrap.py          — st.cache_* glue, exercised via AppTest
 # Excluded by `omit`:
 #   data/price_cache.py   — yfinance network I/O
-source = ["data", "loaders", "ui", "app_config", "advisor"]
+source = ["data", "loaders", "ui", "app_config", "advisor", "analytics"]
 omit = [
     "data/price_cache.py",
     "*/__init__.py",
