@@ -11,6 +11,16 @@ cache:
   max_age_hours: 24
   info_max_age_hours: 168       # refetch fundamentals weekly
 
+# Live intraday quotes — SnapTrade syncs holdings only ~once/day, but share
+# counts barely move; what moves intraday is price. So during market hours we
+# overlay a fresh yfinance quote (~15-min delayed, incl. pre/post-market) onto
+# each position's price, making market value / P&L / NAV reflect live prices.
+# Outside extended hours nothing is pulled (the last close is the latest price).
+live_quotes:
+  enabled: true
+  refresh_seconds: 900          # 15-min pull cadence + auto-refresh interval
+  prepost: true                 # include pre-market (4:00) and post-market (→20:00 ET)
+
 benchmarks:
   - SPY
   - QQQ

@@ -7,6 +7,7 @@ price data and computed metrics, returns a single DataFrame ready for display.
 from __future__ import annotations
 
 import logging
+from collections.abc import Callable
 
 import pandas as pd
 
@@ -47,6 +48,7 @@ def load_portfolio(
     cache: PriceCache,
     account_numbers: list[str] | None = None,
     domicile_overrides: dict | None = None,
+    quotes_fn: Callable[[tuple[str, ...]], dict[str, float]] | None = None,
 ) -> tuple[pd.DataFrame, str]:
     """Load and enrich portfolio data.
 
@@ -57,6 +59,13 @@ def load_portfolio(
             (per-account / multi-account view). None = all accounts (consolidated).
         domicile_overrides: Optional ``{ticker: "US"|"International"}`` map that
             wins over the automatic US/International domicile classification.
+        quotes_fn: Optional callable mapping a tuple of yfinance symbols (equity
+            tickers + ``{CCY}USD=X`` FX pairs) to ``{symbol: latest_price}``. When
+            provided, the returned intraday quotes override the daily-close
+            ``current_price`` (and FX rate) per position — making market value,
+            P&L, weights, and NAV reflect ~15-min-delayed live prices during
+            market hours. None (default) keeps the daily-close behavior, so
+            offline mode and tests are unaffected.
 
     Returns:
         (enriched_df, source) where source is "live" or "cached ({timestamp})".
@@ -79,11 +88,46 @@ def load_portfolio(
     if holdings.empty:
         return holdings, source
 
-    return _enrich(holdings, cache, domicile_overrides), source
+    live_quotes = _fetch_live_quotes(holdings, quotes_fn)
+    return _enrich(holdings, cache, domicile_overrides, live_quotes), source
 
 
-def _enrich(holdings: pd.DataFrame, cache: PriceCache, domicile_overrides: dict | None = None) -> pd.DataFrame:
-    """Enrich per-ticker aggregated holdings with prices, metrics, USD values."""
+def _fetch_live_quotes(
+    holdings: pd.DataFrame, quotes_fn: Callable[[tuple[str, ...]], dict[str, float]] | None
+) -> dict[str, float]:
+    """Resolve the live-quote symbol set from holdings and call ``quotes_fn``.
+
+    Symbols = normalized equity tickers + one ``{CCY}USD=X`` pair per distinct
+    non-USD currency. Fail-soft: any error yields ``{}`` so the daily-close path
+    is used.
+    """
+    if quotes_fn is None:
+        return {}
+    symbols = {_normalize_ticker(t) for t in holdings["ticker"]}
+    if "currency" in holdings.columns:
+        for ccy in holdings["currency"].dropna().unique():
+            code = str(ccy).upper()
+            if code and code != "USD":
+                symbols.add(f"{code}USD=X")
+    try:
+        return quotes_fn(tuple(sorted(symbols))) or {}
+    except Exception as e:
+        logger.warning("Live quote overlay failed: %s — using daily close", e)
+        return {}
+
+
+def _enrich(
+    holdings: pd.DataFrame,
+    cache: PriceCache,
+    domicile_overrides: dict | None = None,
+    live_quotes: dict[str, float] | None = None,
+) -> pd.DataFrame:
+    """Enrich per-ticker aggregated holdings with prices, metrics, USD values.
+
+    When ``live_quotes`` carries a fresher intraday price (or FX rate) for a
+    symbol, it overrides the daily close from the price cache.
+    """
+    live_quotes = live_quotes or {}
     # Get SPY history for beta computation
     spy_hist = cache.get_spy_history()
     spy_close = spy_hist["Close"] if not spy_hist.empty else pd.Series(dtype=float)
@@ -102,6 +146,15 @@ def _enrich(holdings: pd.DataFrame, cache: PriceCache, domicile_overrides: dict 
         close = hist["Close"] if not hist.empty else pd.Series(dtype=float)
         current_price = float(close.iloc[-1]) if not close.empty else 0
 
+        # Live-quote overlay: a fresher intraday price (~15-min delayed, incl.
+        # pre/post-market) replaces the daily close. Historical metrics below
+        # (returns/beta/rsi/vs_spy) keep using the daily series — only the
+        # spot-price-derived values (market value, P&L, weight, % from 52w high)
+        # pick up the live number.
+        live_price = live_quotes.get(ticker)
+        if live_price and live_price > 0:
+            current_price = live_price
+
         # Compute metrics. current_price/avg_cost are in the security's native
         # currency; returns/ratios are currency-independent so they need no FX.
         returns = compute_returns(close) if not close.empty else {}
@@ -113,8 +166,13 @@ def _enrich(holdings: pd.DataFrame, cache: PriceCache, domicile_overrides: dict 
         vs_spy = compute_vs_spy(close, spy_close, acq_date)
 
         # Value amounts: compute in native currency, then convert to USD so NAV,
-        # weights, and P&L aggregate correctly across currencies.
+        # weights, and P&L aggregate correctly across currencies. A live FX rate
+        # (from the same intraday pull) overrides the cached daily rate.
         fx = cache.get_fx_rate(currency)
+        if currency.upper() != "USD":
+            live_fx = live_quotes.get(f"{currency.upper()}USD=X")
+            if live_fx and live_fx > 0:
+                fx = live_fx
         market_value_local = shares * current_price
         pnl_local = market_value_local - (shares * avg_cost) if avg_cost else 0
         market_value = market_value_local * fx
